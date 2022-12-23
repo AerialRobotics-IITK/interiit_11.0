@@ -24,6 +24,8 @@ class Protocol():
         self.ARM_UPPER = 1700
         self.ARM_LOWER = 1300
 
+        # payload byte lengths
+        self.SET_RAW_RC_BYTE_LENGTHS = [2, 2, 2, 2, 2, 2, 2, 2]
         # Length of the response given by the server to an IN packet
         self.COMMAND_RESP_LENGTH = 6
 
@@ -109,7 +111,7 @@ class Protocol():
         """
 
         self.raw_commands[-1] = 1500
-        msg = self.make_message(msg_length=self.SET_RAW_RC_LENGTH, type_of_payload=self.SET_RAW_RC, payload=self.raw_commands, byte_lengths=[2]*8)
+        msg = self.make_message(msg_length=self.SET_RAW_RC_LENGTH, type_of_payload=self.SET_RAW_RC, payload=self.raw_commands, byte_lengths=self.SET_RAW_RC_BYTE_LENGTHS)
         self.send(msg)
         self.read(self.COMMAND_RESP_LENGTH)
     
@@ -121,17 +123,17 @@ class Protocol():
         """
 
         self.raw_commands[-1] = self.ARM_LOWER - 1
-        msg = self.make_message(msg_length=self.SET_RAW_RC_LENGTH, type_of_payload=self.SET_RAW_RC, payload=self.raw_commands, byte_lengths=[2]*8)
+        msg = self.make_message(msg_length=self.SET_RAW_RC_LENGTH, type_of_payload=self.SET_RAW_RC, payload=self.raw_commands, byte_lengths=self.SET_RAW_RC_BYTE_LENGTHS)
         self.send(msg)
         self.read(self.COMMAND_RESP_LENGTH)
     
     
-    def set_RPY_THR(self, roll = None, pitch = None, yaw = None, thrust = None):
+    def set_RPY_THR(self, roll = None, pitch = None, yaw = None, throttle = None):
         """
-        Sets the roll, pitch, yaw and thrust values of the drone
+        Sets the roll, pitch, yaw and throttle values of the drone
         Will set only those values for which the argument is not None
         Others will remain unchanged
-        Arguments : roll, pitch, yaw and thrust are the values to be set
+        Arguments : roll, pitch, yaw and throttle are the values to be set
         Returns : None
         """
 
@@ -143,11 +145,11 @@ class Protocol():
         if pitch is not None:
             self.raw_commands[1] = pitch
         if yaw is not None:
-            self.raw_commands[2] = thrust
-        if thrust is not None:
+            self.raw_commands[2] = throttle
+        if throttle is not None:
             self.raw_commands[3] = yaw
         
-        msg = self.make_message(msg_length=self.SET_RAW_RC_LENGTH, type_of_payload=self.SET_RAW_RC, payload=self.raw_commands, byte_lengths = [2]*8)
+        msg = self.make_message(msg_length=self.SET_RAW_RC_LENGTH, type_of_payload=self.SET_RAW_RC, payload=self.raw_commands, byte_lengths = self.SET_RAW_RC_BYTE_LENGTHS)
         self.send(msg)
         self.read(self.COMMAND_RESP_LENGTH)
 
