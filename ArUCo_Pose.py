@@ -3,7 +3,7 @@ from cv2 import aruco
 import numpy as np
 
 #Path to the calibration matrix of the camera in use
-calib_data_path = "/home/legendarygene/Desktop/calib_data/MultiMatrix.npz"
+calib_data_path = "/home/legendarygene/InterIIT_2023/calib_data/MultiMatrix.npz"
 
 calib_data = np.load(calib_data_path)
 print(calib_data.files)
@@ -20,7 +20,7 @@ MARKER_SIZE = 8
 marker_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 param_markers = aruco.DetectorParameters_create()
 
-Video = cv.VideoCapture(0)
+Video = cv.VideoCapture(2)
 while True:
 
     ret, frame = Video.read()
