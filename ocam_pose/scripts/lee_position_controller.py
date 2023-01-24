@@ -17,7 +17,7 @@ rospy.init_node('effective_pid_try', anonymous=True)
 
 class pidcontroller:
     # Defining the P,I,D control parameters
-    def __init__(self, kp=[2,2,4], kd=[2,2,2],ki=[0.001,0.001,0.2], IP="192.168.4.1", PORT=23):
+    def __init__(self, kp=[2,2,3], kd=[2,2,0.5],ki=[0.001,0.001,0], IP="192.168.4.1", PORT=23):
         self.talker = Protocol(IP, PORT)
         self.kp = kp
         self.kd = kd
@@ -28,7 +28,7 @@ class pidcontroller:
         self.prev_time = [0.0,0.0,0.0]
         self.error_tol=0.01
         self.prev_error = [0.0,0.0,0.0]
-        self.e_i = [0.0,0.0,1650/ki[2]]
+        self.e_i = [0.0,0.0,0]
         self.e_d = [0.0, 0.0, 0.0]
         self.vel = np.array([0.0,0.0,0.0])
         self.speed = 1 
@@ -39,7 +39,7 @@ class pidcontroller:
         self.length = 1
         self.curr_pos=[0.0,0.0,0.0]
         self.curr_attitude=[0,0,0,0]
-        self.equilibrium_thrust=1548
+        self.equilibrium_thrust=1650
         self.equilibrium_attitude = [0,0,0,15]#need to do something about thrust
         self.b3d = np.array([0.0,0.0,0.0])
         self.re3 = np.array([0.0,0.0,0.0])
@@ -66,16 +66,14 @@ class pidcontroller:
             roll = 1800
         # print(thrust)
 
-        thrust = 750 + thrust/2
-        if thrust >1800:
-            thrust = 1800
+        if thrust >2000:
+            thrust = 2000
         elif thrust<1400:
             thrust = 1400
         # print(thrust)
         yaw = 1500
-        # thrust=1600
         # thrust = np.clip(thrust, 1200,1800)
-        print(roll, pitch, yaw, thrust)
+        # print(roll, pitch, yaw, thrust)
         # pub = rospy.Publisher('/firefly/command/roll_pitch_yawrate_thrust', RollPitchYawrateThrust, queue_size=10)
         # while not rospy.is_shutdown():  
         # pub.publish(p)
@@ -105,13 +103,16 @@ class pidcontroller:
         # print("e_i", self.e_i[i])
         # print('dt', dt)
         if i == 2:
-            print("ep:",e_p,", ei:",self.e_i[i],", ed:",self.e_d[i])
+            print("ed: ",self.e_d[i])
+            # print("ep:",e_p,", ei:",self.e_i[i],", ed:",self.e_d[i])
 
         return (self.kp[i] * e_p) + (self.kd[i]*self.e_d[i]) + (self.ki[i]*self.e_i[i])
 
 
     def pos_change(self,targ_pos=([0,0,0]),curr_pos = ([0,0,0]), curr_attitude = ([0,0,0,15])):# Corrects only position
         # if not self.breaker:
+        print("curr_pose: ",curr_pos[2])
+
         errors = (targ_pos[0]-curr_pos[0], targ_pos[1]-curr_pos[1], targ_pos[2]-curr_pos[2])
         for i in range(len(errors)):
             self.vel[i] = self.calc_error(i,errors[i])
@@ -138,8 +139,8 @@ class pidcontroller:
 
         
         self.curr_attitude[3] = self.vel[2]
-        print("error:", errors)
-        print(self.curr_attitude[3])
+        # print("error:", errors)
+        # print(self.curr_attitude[3])
         # if(curr_attitude[3]+self.speed*self.vel[2]<0):
         #     curr_attitude[3]=0
         # print("X")
@@ -172,8 +173,9 @@ class pidcontroller:
         self.listener()
         if  self.curr_pos != targ_pos:
             self.reach_pose = False
+        start = time.time()
         # while not self.reach_pose:
-        r = rospy.Rate(50)
+        r = rospy.Rate(10)
         while not rospy.is_shutdown():
             self.listener()
             # if (max([abs(targ_pos[i][0]-self.curr_pos[0]), abs(targ_pos[i][1]-self.curr_pos[1]), abs(targ_pos[i][2]-self.curr_pos[2])])<0.1 and i+1<len(targ_pos)):
@@ -197,4 +199,5 @@ pluto.talker.actual_takeoff()
 #     pluto.talker.set_RPY_THR(1450, 1500, 1500, 1600)
 # while time.time()-start <8:
 #     pluto.talker.set_RPY_THR(1500, 1450, 1500, 1600)
-pluto.autopilot([0,0,67])
+
+pluto.autopilot([0,0,50])
