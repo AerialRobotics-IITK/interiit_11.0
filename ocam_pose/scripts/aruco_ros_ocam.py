@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 import rospy
 import cv2 as cv
 from cv2 import aruco
@@ -15,9 +16,8 @@ from multiprocessing import shared_memory
 #---------------------------------------------------
 #| Global Parameters, change according to use case |
 #---------------------------------------------------
-
 # In Centimetres
-MARKER_SIZE = 4 
+MARKER_SIZE = 5.3
 
 #Publish to 'detected' topic
 pub_1 = rospy.Publisher('detected', Image, queue_size=10)
@@ -44,6 +44,8 @@ image_topic = '/camera/image_raw'
 
 #Testing only!!!
 b=np.array([0,0,0], dtype = np.float32)
+b_temp=np.array([0,0,0], dtype = np.float32)
+
 
 #----------------------------------------------------
 #| Callback function that does the image processing |
@@ -84,17 +86,27 @@ def callback(cam,data):
 
             #Put the calculated estimate on the image
             # cv.putText(frame,f"id: {ids[0]} Dist: {round(distance, 2)}",top_right,cv.FONT_HERSHEY_PLAIN,1.3,(0, 0, 255),2,cv.LINE_AA,)
-            print(f"x:{round(tVec[i][0][0],1)} y: {round(tVec[i][0][1],1)} z: {round(tVec[i][0][2],1)}")
-
+            # print(f"x:{round(tVec[i][0][0],1)} y: {round(tVec[i][0][1],1)} z: {round(tVec[i][0][2],1)}")
+            
+            
             #Update values to the shared memory
             b[0] = round(tVec[i][0][0],1)
             b[1] = round(tVec[i][0][1],1)
-            b[2] = 101 - round(tVec[i][0][2],1)
+            b[2] = 260 - round(tVec[i][0][2],1)
+    else:   
+        b[0]=b_temp[0]
+        b[1]=b_temp[1]
+        b[2]=b_temp[2]
 
     #Convert back to rosmsg and publish
     img=bridge.cv2_to_imgmsg(frame,'rgb8')
     pub_1.publish(img)
+    b_temp[0]=b[0]
+    b_temp[1]=b[1]
+    b_temp[2]=b[2]
     pub_2.publish(b)
+    print(b)
+    print(time.time())
 
 def listener():
 
@@ -104,8 +116,8 @@ def listener():
     img = message_filters.Subscriber(image_topic, Image)
 
     #Sync the multiple subscribed topics, and process image thru callback
-    ts = message_filters.TimeSynchronizer([cam_info,img],10,1)
-    ts.registerCallback(callback)                                                                                                     
+    ts = message_filters.TimeSynchronizer([cam_info,img],50,1)
+    ts.registerCallback(callback)                                                                                           
     rospy.spin()
 
 if __name__ == '__main__':
