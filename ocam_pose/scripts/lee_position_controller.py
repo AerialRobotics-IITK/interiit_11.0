@@ -17,7 +17,7 @@ rospy.init_node('effective_pid_try', anonymous=True)
 
 class pidcontroller:
     # Defining the P,I,D control parameters
-    def __init__(self, kp=[2,2,3], kd=[2,2,0.5],ki=[0.001,0.001,0], IP="192.168.4.1", PORT=23):
+    def __init__(self, kp=[2,2,4.5], kd=[2,2,4],ki=[0.001,0.001,0], IP="192.168.4.1", PORT=23):
         self.talker = Protocol(IP, PORT)
         self.kp = kp
         self.kd = kd
@@ -103,7 +103,7 @@ class pidcontroller:
         # print("e_i", self.e_i[i])
         # print('dt', dt)
         if i == 2:
-            print("ed: ",self.e_d[i])
+            print(self.e_d[i]) #printing e_d
             # print("ep:",e_p,", ei:",self.e_i[i],", ed:",self.e_d[i])
 
         return (self.kp[i] * e_p) + (self.kd[i]*self.e_d[i]) + (self.ki[i]*self.e_i[i])
@@ -111,7 +111,7 @@ class pidcontroller:
 
     def pos_change(self,targ_pos=([0,0,0]),curr_pos = ([0,0,0]), curr_attitude = ([0,0,0,15])):# Corrects only position
         # if not self.breaker:
-        print("curr_pose: ",curr_pos[2])
+        # print("curr_pose: ",curr_pos[2])
 
         errors = (targ_pos[0]-curr_pos[0], targ_pos[1]-curr_pos[1], targ_pos[2]-curr_pos[2])
         for i in range(len(errors)):
@@ -138,7 +138,7 @@ class pidcontroller:
         self.re3[2] = (math.cos(self.curr_attitude[0]))
 
         
-        self.curr_attitude[3] = self.vel[2]
+        self.curr_attitude[3] = np.linalg.norm(self.vel)
         # print("error:", errors)
         # print(self.curr_attitude[3])
         # if(curr_attitude[3]+self.speed*self.vel[2]<0):
@@ -187,6 +187,7 @@ class pidcontroller:
             # if self.reach_pose:
             #     break
             
+print("e_d")
 pluto = pidcontroller()
 pluto.talker.arm()
 pluto.talker.actual_takeoff()
@@ -200,4 +201,5 @@ pluto.talker.actual_takeoff()
 # while time.time()-start <8:
 #     pluto.talker.set_RPY_THR(1500, 1450, 1500, 1600)
 
-pluto.autopilot([0,0,50])
+pluto.autopilot([0,0,100])
+# pluto.autopilot([50, 0, 100])
