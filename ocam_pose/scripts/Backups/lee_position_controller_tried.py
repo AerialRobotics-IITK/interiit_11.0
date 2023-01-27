@@ -17,7 +17,7 @@ rospy.init_node('effective_pid_try', anonymous=True)
 
 class pidcontroller:
     # Defining the P,I,D control parameters
-    def __init__(self, kp=[2.5,2.5,5], kd=[4,4,4.5],ki=[0.001,0.001,0], IP="192.168.4.1", PORT=23):
+    def __init__(self, kp=[1.5,1.5,2], kd=[3,3,10],ki=[0.001,0.001,0], IP="192.168.4.1", PORT=23):
         self.talker = Protocol(IP, PORT)
         self.kp = kp
         self.kd = kd
@@ -39,7 +39,7 @@ class pidcontroller:
         self.length = 1
         self.curr_pos=[0.0,0.0,0.0]
         self.curr_attitude=[0,0,0,0]
-        self.equilibrium_thrust=1450
+        self.equilibrium_thrust=1650
         self.equilibrium_attitude = [0,0,0,15]#need to do something about thrust
         self.b3d = np.array([0.0,0.0,0.0])
         self.re3 = np.array([0.0,0.0,0.0])
@@ -66,11 +66,11 @@ class pidcontroller:
             roll = 1800
         # print(thrust)
 
-        if thrust >2099:
-            thrust = 2099
-        elif thrust<1000:
-            thrust = 1000
-        print(thrust)
+        if thrust >2000:
+            thrust = 2000
+        elif thrust<1400:
+            thrust = 1400
+        # print(thrust)
         yaw = 1500
         # thrust = np.clip(thrust, 1200,1800)
         # print(roll, pitch, yaw, thrust)
@@ -103,7 +103,7 @@ class pidcontroller:
         # print("e_i", self.e_i[i])
         # print('dt', dt)
         if i == 2:
-            print(self.e_d[i],",",e_p,end=",") #printing e_d
+            print(self.e_d[i],",",e_p) #printing e_d and e_p
             # print("ep:",e_p,", ei:",self.e_i[i],", ed:",self.e_d[i])
 
         return (self.kp[i] * e_p) + (self.kd[i]*self.e_d[i]) + (self.ki[i]*self.e_i[i])
@@ -166,7 +166,7 @@ class pidcontroller:
         #     print ("reached destination coordinates")
         #     print ("error:",np.linalg.norm(errors)) 
 
-    def autopilot(self,targ_pos,duration):
+    def autopilot(self,targ_pos):
         
         self.start=time.time()
         # self.curr_pos and orientation needs to be read
@@ -175,8 +175,8 @@ class pidcontroller:
             self.reach_pose = False
         start = time.time()
         # while not self.reach_pose:
-        r = rospy.Rate(30)
-        while not rospy.is_shutdown() and time.time()-start<duration:
+        r = rospy.Rate(10)
+        while not rospy.is_shutdown() and time.time()-start<10:
             self.listener()
             # if (max([abs(targ_pos[i][0]-self.curr_pos[0]), abs(targ_pos[i][1]-self.curr_pos[1]), abs(targ_pos[i][2]-self.curr_pos[2])])<0.1 and i+1<len(targ_pos)):
             #     self.autopilot(targ_pos, i+1)
@@ -187,13 +187,13 @@ class pidcontroller:
             # if self.reach_pose:
             #     break
             
-print("e_d,e_p,thrust")
+print("e_d, e_p")
 pluto = pidcontroller()
 pluto.talker.arm()
 pluto.talker.actual_takeoff()
 # start = time.time()
-# while time.time()-start <10:
-#     pluto.talker.set_RPY_THR(1500, 1500, 1500, 1800)
+# while time.time()-start <2:
+#     pluto.talker.set_RPY_THR(1500, 1500, 1500, 1600)
 # while time.time()-start <4:
 #     pluto.talker.set_RPY_THR(1500, 1550, 1500, 1600)
 # while time.time()-start <6:
@@ -201,12 +201,9 @@ pluto.talker.actual_takeoff()
 # while time.time()-start <8:
 #     pluto.talker.set_RPY_THR(1500, 1450, 1500, 1600)
 
-pluto.autopilot([-40, -40, 100], 10)
-pluto.autopilot([40, -40, 100], 10)
-pluto.autopilot([40, 40, 100], 10)
-pluto.autopilot([-40, 40, 100], 10)
-pluto.autopilot([-40, -40, 100], 10)
-# i = -25
-# while(i<30):
-#     pluto.autopilot([i,0,80], 1.5)
-#     i = i+5
+# pluto.autopilot([0,0,100])
+pluto.autopilot([-50,-50,100])
+# pluto.autopilot([-50,50,50])
+# pluto.autopilot([50,50,50])
+# pluto.autopilot([50,-50,50])
+# pluto.autopilot([-50,-50,50])
