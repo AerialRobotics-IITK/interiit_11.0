@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+
+    <include file="$(find ocam)/launch/ocam_ros.launch"/>
+    <node name="pose_ocam" pkg="pose_ocam" type="aruco_ros_ocam.py" output="screen"/>
+
+</launch>
