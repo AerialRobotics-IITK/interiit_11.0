@@ -187,7 +187,7 @@ def listener():
     img = message_filters.Subscriber(image_topic, Image)
 
     # Sync the multiple subscribed topics, and process image thru callback
-    ts = message_filters.TimeSynchronizer([cam_info, img], 30, 1)
+    ts = message_filters.TimeSynchronizer([cam_info, img], 54, 1)
     ts.registerCallback(callback)
     rospy.spin()
 
