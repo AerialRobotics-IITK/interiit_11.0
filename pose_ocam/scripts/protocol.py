@@ -1,5 +1,7 @@
 import serial
 import time
+from kalman import KalmanFilter
+import numpy as np
 
 
 class Protocol:
@@ -16,12 +18,12 @@ class Protocol:
         self.com = serial.serial_for_url(
             "socket://" + IP + ":" + str(PORT), timeout=1)
         self.com.baudrate = baudrate
-
         self.raw_commands = [1500, 1500, 1200, 1500, 1000, 1500, 2000, 1500]
 
         # type of payload
         self.SET_RAW_RC = 200
         self.MSP_ALTITUDE = 109
+        self.MSP_IMU = 102
 
         # payload length
         self.SET_RAW_RC_LENGTH = 16
@@ -32,9 +34,12 @@ class Protocol:
 
         # payload byte lengths
         self.SET_RAW_RC_BYTE_LENGTHS = [2, 2, 2, 2, 2, 2, 2, 2]
+
         # Length of the response given by the server to an IN packet
         self.COMMAND_RESP_LENGTH = 6
+
         self.ALTITUDE_RESP_LENGTH = 12
+        self.IMU_RESP_LENGTH = 24
 
         # Header and direction for the packets
         self.HEADER = "24 4d"
@@ -47,22 +52,29 @@ class Protocol:
         self.TYPE_OF_PAYLOAD_BYTES = 1
         self.CHECKSUM_BYTES = 1
 
-        self.TAKEOFF_THRUST = 1700
-        self.LAND_THRUST = 1550
+        self.TAKEOFF_THRUST = 1650
+        self.LAND_THRUST = 1450
         self.MAX_THRUST = 2100
         self.MIN_THRUST = 900
 
         self.EQUIILIBRIUM_ROLL = 1500
         self.EQUIILIBRIUM_PITCH = 1500
         self.EQUIILIBRIUM_YAW = 1500
-        self.EQUIILIBRIUM_THRUST = 1500
+        self.EQUIILIBRIUM_THRUST = 1570
+
+        self.flag = 0
 
         self.ALTITUDE_MESSAGE = self.make_message(
             msg_length=0, type_of_payload=self.MSP_ALTITUDE, payload=[], byte_lengths=[]
         )
+        
+        self.IMU_MESSAGE = self.make_message(
+            msg_length=0, type_of_payload=self.MSP_IMU, payload=[], byte_lengths=[]
+        )
+        
         self.GROUND_ALTITUDE = (self.get_altitude())["altitude"]
 
-        self.TAKEOFF_ALTITUDE = 0.5
+        self.TAKEOFF_ALTITUDE = self.GROUND_ALTITUDE + 0.5
 
         self.SLEEP_TIME = 0.05
 
@@ -266,6 +278,10 @@ class Protocol:
             self.raw_commands[2] = thrust
         if yaw is not None:
             self.raw_commands[3] = yaw
+        if self.flag == 1:
+            self.raw_commands[-2] = 1300
+        if self.flag == 0:
+            self.raw_commands[-2] = 2000
 
         msg = self.make_message(
             msg_length=self.SET_RAW_RC_LENGTH,
@@ -286,16 +302,19 @@ class Protocol:
         if not self.is_armed():
             # warn if the drone is not yet armed
             print("WARNING : Drone not armed")
-        #  return
         thrust = self.TAKEOFF_THRUST
-        start = time.time()
-        # print(self.get_altitude())
-        while time.time() - start < 3.0:
-            print(self.get_altitude()["altitude"])
-            desired_pitch = 1510
-            self.set_RPY_THR(pitch=desired_pitch, thrust=thrust)
-
+        start_time = time.time()
+        self.alt_hold()
+        while(time.time() - start_time < 5):
+            self.set_RPY_THR(thrust=thrust, roll=1495, pitch=1502)
         self.set_RPY_THR(thrust=self.EQUIILIBRIUM_THRUST)
+        self.alt_hold(0)
+
+    def alt_hold(self, val=1):
+        """
+        Sets the drone in alt hold mode, disables if val given to be 0
+        """
+        self.flag = val
 
     def land(self):
         """
@@ -304,14 +323,12 @@ class Protocol:
         Returns : None
         """
         start = time.time()
+        self.alt_hold()
         while True:
-            print(self.get_altitude()["altitude"])
             if time.time() - start > 3.5:
                 break
-            self.set_RPY_THR(thrust=self.LAND_THRUST)
-            time.sleep(self.SLEEP_TIME)
-
-        self.set_RPY_THR(thrust=self.EQUIILIBRIUM_THRUST)
+            self.set_RPY_THR(thrust = self.LAND_THRUST)
+        self.alt_hold(0)
         self.disarm()
 
     def read_response(self, message):
@@ -341,6 +358,17 @@ class Protocol:
             vario = int.from_bytes(var_msg, byteorder="big", signed=True)
             response["altitude"] = altitude * 0.01
             response["vario"] = vario
+
+        elif type_of_payload == self.MSP_IMU:
+            # IMU response is an 18 byte payload
+            # The first 6 bytes are a_x, a_y, a_z, 2 bytes each
+            # Byte order must be reversed for each field
+            for i in range(9):
+                field = b""
+                for j in range(2):
+                    field = field + message[2*i + 6 - j].to_bytes(1, byteorder = "big")
+                field = int.from_bytes(field, byteorder="big", signed=True)
+                response[str(i)] = field
         return response
 
     def get_altitude(self):
@@ -351,4 +379,14 @@ class Protocol:
         """
         self.send(self.ALTITUDE_MESSAGE)
         response = self.read(self.ALTITUDE_RESP_LENGTH)
+        return self.read_response(response)
+        
+    def get_imu(self):
+        """
+        Gets the imu data of the drone
+        Arguments : None
+        Returns : The imu data of the drone
+        """
+        self.send(self.IMU_MESSAGE)
+        response = self.read(self.IMU_RESP_LENGTH)
         return self.read_response(response)

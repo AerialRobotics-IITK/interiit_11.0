@@ -172,6 +172,7 @@ def callback(cam, data):
     pub_1.publish(img)
     pub_2.publish(b)
     b_temp = b.copy()
+    # print(time.time() - start_time)
     print(f"{time.time() - start_time}, {b[0]}, {b[1]}, {b[2]}, {b_uncorrected[0]}, {b_uncorrected[1]}, {b_uncorrected[2]}",
           file=log_file)  # for logging only!
 
