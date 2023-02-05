@@ -2,13 +2,10 @@ import serial
 import time
 from kalman import KalmanFilter
 import numpy as np
-
-
 class Protocol:
     """
     This class defines the protocol and deals with the communication with the flight controller.
     """
-
     def __init__(self, IP, PORT, baudrate=115200):
         """
         Arguments : IP is the IP address of the flight controller
@@ -53,7 +50,7 @@ class Protocol:
         self.CHECKSUM_BYTES = 1
 
         self.TAKEOFF_THRUST = 1650
-        self.LAND_THRUST = 1450
+        self.LAND_THRUST = 1540
         self.MAX_THRUST = 2100
         self.MIN_THRUST = 900
 
@@ -328,7 +325,7 @@ class Protocol:
             if time.time() - start > 3.5:
                 break
             self.set_RPY_THR(thrust = self.LAND_THRUST)
-        self.alt_hold(0)
+        # self.alt_hold(0)
         self.disarm()
 
     def read_response(self, message):

@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
-
 import cv2 as cv
 from cv2 import aruco
 from cv_bridge import CvBridge
-
 import rospy
 from std_msgs.msg import String
 from sensor_msgs.msg import CameraInfo, Image
 import numpy as np
 import message_filters
-
 import time
 import socket
 import os
-
 from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
 from multiprocessing import shared_memory
@@ -45,10 +41,6 @@ FILE = os.path.join(LOG_FOLDER_PATH, f"pose/{int(time.time())}.log")
 log_file = open(FILE, 'w')
 start_time = time.time()
 
-# Testing only!!!
-count = 0
-not_count = 0
-
 # Position arrays for drone
 b = np.array([0, 0, 0], dtype=np.float32)  # current position
 b_uncorrected = np.array([0, 0, 0], dtype=np.float32)  # uncorrected position
@@ -59,8 +51,6 @@ bridge = CvBridge()
 
 # Parameters specific to Kalman Filtering
 dt = 1.0/60
-lambda_a = 0.6
-lambda_u = 0.6
 F1 = np.array([[1, dt, 0], [0, 1, dt], [0, 0, 1]])
 H1 = np.array([1, 0, 0]).reshape(1, 3)
 Q1 = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])
@@ -76,9 +66,6 @@ H3 = np.array([1, 0, 0]).reshape(1, 3)
 Q3 = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])
 R3 = np.array([0.5]).reshape(1, 1)
 kf3 = KalmanFilter(F=F3, H=H3, Q=Q3, R=R3)
-
-# clahe objects
-clahe = cv.createCLAHE(clipLimit=20)
 
 # ---------------------------------------------------------
 # | Function to update according to predictions by Kalman |
@@ -123,7 +110,6 @@ def callback(cam, data):
     # Image processing
     frame = bridge.imgmsg_to_cv2(data, desired_encoding='rgb8')
     gray_frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    # gray_frame = clahe.apply(gray_frame)
 
     # Marker detection
     marker_corners, marker_IDs, reject = aruco.detectMarkers(
@@ -131,7 +117,6 @@ def callback(cam, data):
 
     if marker_corners:
 
-        count = count + 1
         rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
             marker_corners, MARKER_SIZE, cam_mat, dist_coef)
         total_markers = range(0, marker_IDs.size)
@@ -143,39 +128,20 @@ def callback(cam, data):
                          True, (0, 255, 255), 4, cv.LINE_AA)
             point = cv.drawFrameAxes(
                 frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
-            corners = corners.reshape(4, 2)
-            corners = corners.astype(int)
-            top_right = corners[0].ravel()
-            top_left = corners[1].ravel()
-            bottom_right = corners[2].ravel()
-            bottom_left = corners[3].ravel()
-            distance = np.sqrt(tVec[i][0][2] ** 2 +
-                               tVec[i][0][0] ** 2 + tVec[i][0][1] ** 2)
-            estimate = (top_right + top_left + bottom_left + bottom_right)/4
-            tan = distance/np.sqrt(tVec[i][0][0] ** 2 + tVec[i][0][1] ** 2)
-            # print("Pixel: ", estimate)
-            # print("Distance: ", distance)
-            # print("Tan: ", tan)
-            # print(b[0],",",b[1],",",b[2],",",b_uncorrected[0],",",b_uncorrected[1],",",b_uncorrected[2])
-            # print(top_left[0],",",top_left[1],",",top_right[0],",",top_right[1],",",bottom_left[0],",",bottom_left[1],",",bottom_right[0],",",bottom_right[1])
-
             pose_update(tVec, i)  # Update values according to latest detection
             predict_kalman()  # Kalman Filtering
 
     else:
         # print("Marker not detected, old values sent!")
         b = b_temp.copy()
-        not_count = not_count + 1
 
     # Convert back to rosmsg and publish
     img = bridge.cv2_to_imgmsg(frame, 'rgb8')
     pub_1.publish(img)
     pub_2.publish(b)
     b_temp = b.copy()
-    # print(time.time() - start_time)
     print(f"{time.time() - start_time}, {b[0]}, {b[1]}, {b[2]}, {b_uncorrected[0]}, {b_uncorrected[1]}, {b_uncorrected[2]}",
           file=log_file)  # for logging only!
-
 
 def listener():
     # --------------------------------------
@@ -192,8 +158,6 @@ def listener():
     ts.registerCallback(callback)
     rospy.spin()
 
-
 if __name__ == '__main__':
     print("time,x,y,z,x_o,y_o,z_o", file=log_file)  # for logging only!
-    # print("tl_x, tl_y, tr_x, tr_y, bl_x, bl_y, br_x, br_y")
     listener()
