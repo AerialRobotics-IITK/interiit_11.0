@@ -9,7 +9,7 @@ from rospy.numpy_msg import numpy_msg
 from protocol import Protocol
 from params import *
 
-rospy.init_node("controller", anonymous=True)
+rospy.init_node("controller_2", anonymous=True)
 
 os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
 LOGFILE = os.path.join(LOG_FOLDER_PATH, f"controller/{int(time.time())}.txt")
@@ -18,7 +18,7 @@ start_time = time.time()
 
 class pidcontroller:
 
-    def __init__(self, kp=[2.5, 2.5, 5], kd=[4, 4, 4.5], ki=[0.001, 0.001, 0.5], eqb_thrust=1500, IP="192.168.4.1", PORT=23):
+    def __init__(self, kp=[2.5, 2.5, 5], kd=[4, 4, 4.5], ki=[0.001, 0.001, 0.5], eqb_thrust=1500, IP="192.168.0.20", PORT=23):
         
         self.talker = Protocol(IP, PORT)
         self.kp = kp
@@ -37,7 +37,7 @@ class pidcontroller:
         self.re3 = np.array([0.0, 0.0, 0.0])
     
     def listener(self):
-        rospy.Subscriber("position", numpy_msg(Floats), self.callback)
+        rospy.Subscriber("position_2", numpy_msg(Floats), self.callback)
             
     def callback(self, msg):
 
@@ -131,11 +131,8 @@ pluto = pidcontroller(kp=[4, 4, 2.7], kd=[5, 5, 2.15], ki=[0.05, 0.05, 1.1], eqb
 pluto.talker.disarm()
 pluto.talker.arm()
 pluto.talker.actual_takeoff()
-# pluto.autopilot([0, 0, 120], 15)
-
 pluto.autopilot([-40, -40, 80], 8)
 pluto.autopilot([40, -40, 80], 8)
-
 pluto.autopilot([40, 40, 80], 8)
 pluto.autopilot([-40, 40, 80], 8)
 pluto.autopilot([-40, -40, 80], 8)

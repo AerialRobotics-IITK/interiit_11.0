@@ -8,13 +8,12 @@ from sensor_msgs.msg import CameraInfo, Image
 import numpy as np
 import message_filters
 import time
-import socket
 import os
 from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
 from multiprocessing import shared_memory
 from kalman import KalmanFilter
-from params import *
+from env import *
 
 # ---------------------------------------------------
 # | Global Parameters, change according to use case |
@@ -25,8 +24,8 @@ dist_ceiling = 233
 
 # Publish image to 'detected' topic and pose to 'position' topic
 pub_1 = rospy.Publisher('detected', Image, queue_size=10)
-pub_2 = rospy.Publisher('position', numpy_msg(Floats), queue_size=10)
-
+pub_2 = rospy.Publisher('position_1', numpy_msg(Floats), queue_size=10)
+pub_3 = rospy.Publisher('position_2', numpy_msg(Floats), queue_size=10)
 # Dictionary containing the AruCo Markers being used
 marker_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 param_markers = aruco.DetectorParameters_create()
@@ -42,9 +41,9 @@ log_file = open(FILE, 'w')
 start_time = time.time()
 
 # Position arrays for drone
-b = np.array([0, 0, 0], dtype=np.float32)  # current position
-b_uncorrected = np.array([0, 0, 0], dtype=np.float32)  # uncorrected position
-b_temp = np.array([0, 0, 0], dtype=np.float32)  # for last detected value
+b = np.array([[0, 0, 0], [0, 0, 0]], dtype=np.float32)  # current position
+b_uncorrected = np.array([[0, 0, 0], [0, 0, 0]], dtype=np.float32)  # uncorrected position
+b_temp = np.array([[0, 0, 0], [0, 0, 0]], dtype=np.float32)  # for last detected value
 
 # Bridge to convert rosmsg to cv
 bridge = CvBridge()
@@ -66,34 +65,63 @@ H3 = np.array([1, 0, 0]).reshape(1, 3)
 Q3 = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])
 R3 = np.array([0.5]).reshape(1, 1)
 kf3 = KalmanFilter(F=F3, H=H3, Q=Q3, R=R3)
+F4 = np.array([[1, dt, 0], [0, 1, dt], [0, 0, 1]])
+H4 = np.array([1, 0, 0]).reshape(1, 3)
+Q4 = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])
+R4 = np.array([0.5]).reshape(1, 1)
+kf4 = KalmanFilter(F=F4, H=H4, Q=Q4, R=R4)
+F5 = np.array([[1, dt, 0], [0, 1, dt], [0, 0, 1]])
+H5 = np.array([1, 0, 0]).reshape(1, 3)
+Q5 = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])
+R5 = np.array([0.5]).reshape(1, 1)
+kf5 = KalmanFilter(F=F5, H=H5, Q=Q5, R=R5)
+F6 = np.array([[1, dt, 0], [0, 1, dt], [0, 0, 1]])
+H6 = np.array([1, 0, 0]).reshape(1, 3)
+Q6 = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])
+R6 = np.array([0.5]).reshape(1, 1)
+kf6 = KalmanFilter(F=F6, H=H6, Q=Q6, R=R6)
 
 # ---------------------------------------------------------
 # | Function to update according to predictions by Kalman |
 # ---------------------------------------------------------
 
 
-def predict_kalman():
+def predict_kalman(id):
     global b, kf1, kf2, kf3, H1, H2, H3
 
-    b[0] = np.dot(H1, kf1.predict())[0]
-    b[1] = np.dot(H2, kf2.predict())[0]
-    b[2] = np.dot(H3, kf3.predict())[0]
-    kf1.update(b_uncorrected[0])
-    kf2.update(b_uncorrected[1])
-    kf3.update(b_uncorrected[2])
+    if id==0:
+        b[0][0] = np.dot(H1, kf1.predict())[0]
+        b[0][1] = np.dot(H2, kf2.predict())[0]
+        b[0][2] = np.dot(H3, kf3.predict())[0]
+        kf1.update(b_uncorrected[0][0])
+        kf2.update(b_uncorrected[0][1])
+        kf3.update(b_uncorrected[0][2])
+    elif id==10:
+        b[1][0] = np.dot(H1, kf4.predict())[0]
+        b[1][1] = np.dot(H2, kf5.predict())[0]
+        b[1][2] = np.dot(H3, kf6.predict())[0]
+        kf4.update(b_uncorrected[1][0])
+        kf5.update(b_uncorrected[1][1])
+        kf6.update(b_uncorrected[1][2])
 
 # ----------------------------------------------------
 # | Update the position according to latest detection|
 # ----------------------------------------------------
 
 
-def pose_update(tVector, it):
+def pose_update(tVector, it, id):
     global b, b_uncorrected
 
-    b[0] = round(tVector[it][0][0], 1)
-    b[1] = round(tVector[it][0][1], 1)
-    b[2] = dist_ceiling - round(tVector[it][0][2], 1)
-    b_uncorrected = b.copy()
+    if id==0:
+        b[0][0] = round(tVector[it][0][0], 1)
+        b[0][1] = round(tVector[it][0][1], 1)
+        b[0][2] = dist_ceiling - round(tVector[it][0][2], 1)
+        b_uncorrected[0] = b[0]
+    if id==10:
+        b[1][0] = round(tVector[it][0][0], 1)
+        b[1][1] = round(tVector[it][0][1], 1)
+        b[1][2] = dist_ceiling - round(tVector[it][0][2], 1)
+        b_uncorrected[1] = b[1]
 
 # ----------------------------------------------------
 # | Callback function that does the image processing |
@@ -128,19 +156,33 @@ def callback(cam, data):
                          True, (0, 255, 255), 4, cv.LINE_AA)
             point = cv.drawFrameAxes(
                 frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
-            pose_update(tVec, i)  # Update values according to latest detection
-            predict_kalman()  # Kalman Filtering
+            if ids[0]==0:
+                pose_update(tVec, i, 0)  # Update values according to latest detection
+                predict_kalman(0)
+            elif ids[0]==10: 
+                pose_update(tVec, i, 10)  # Update values according to latest detection
+                predict_kalman(10)
 
+        if len(marker_IDs)==1:
+            if marker_IDs[0][0]==0:
+                # print("Marker ID 10 not detected, old values sent!")
+                b[1] = b_temp[1]
+            elif marker_IDs[0][0]==10:
+                # print("Marker ID 0 not detected, old values sent!")
+                b[0] = b_temp[0]
     else:
-        # print("Marker not detected, old values sent!")
-        b = b_temp.copy()
+        # print("Both markers not detected, old values sent!")
+        b[0] = b_temp[0]
+        b[1] = b_temp[1]
 
     # Convert back to rosmsg and publish
     img = bridge.cv2_to_imgmsg(frame, 'rgb8')
     pub_1.publish(img)
-    pub_2.publish(b)
-    b_temp = b.copy()
-    print(f"{time.time() - start_time}, {b[0]}, {b[1]}, {b[2]}, {b_uncorrected[0]}, {b_uncorrected[1]}, {b_uncorrected[2]}",
+    pub_2.publish(b[0])
+    pub_3.publish(b[1])
+    b_temp[0] = b[0]
+    b_temp[1] = b[1]
+    print(f"{time.time() - start_time}, {b[0][0]}, {b[0][1]}, {b[0][2]}, {b_uncorrected[0][0]}, {b_uncorrected[0][1]}, {b_uncorrected[0][2]}",
           file=log_file)  # for logging only!
 
 def listener():
