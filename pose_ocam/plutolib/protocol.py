@@ -1,19 +1,19 @@
 import serial
 import time
-from kalman import KalmanFilter
-import numpy as np
+
+
 class Protocol:
     """
     This class defines the protocol and deals with the communication with the flight controller.
     """
+
     def __init__(self, IP, PORT, baudrate=115200):
         """
         Arguments : IP is the IP address of the flight controller
                     PORT is the port number of the flight controller
         Initializes the protocol object
         """
-        self.com = serial.serial_for_url(
-            "socket://" + IP + ":" + str(PORT), timeout=1)
+        self.com = serial.serial_for_url("socket://" + IP + ":" + str(PORT), timeout=1)
         self.com.baudrate = baudrate
         self.raw_commands = [1500, 1500, 1200, 1500, 1000, 1500, 2000, 1500]
 
@@ -64,11 +64,11 @@ class Protocol:
         self.ALTITUDE_MESSAGE = self.make_message(
             msg_length=0, type_of_payload=self.MSP_ALTITUDE, payload=[], byte_lengths=[]
         )
-        
+
         self.IMU_MESSAGE = self.make_message(
             msg_length=0, type_of_payload=self.MSP_IMU, payload=[], byte_lengths=[]
         )
-        
+
         self.GROUND_ALTITUDE = (self.get_altitude())["altitude"]
 
         self.TAKEOFF_ALTITUDE = self.GROUND_ALTITUDE + 0.5
@@ -93,8 +93,7 @@ class Protocol:
             self.DIRECTION
         )  # Direction is always 3c for any packet sent to the flight controller
         # Convert the integers to bytes, NOTE: the byteorder is little endian for the payload
-        msg_length = msg_length.to_bytes(
-            self.MSG_LENGTH_BYTES, byteorder="big")
+        msg_length = msg_length.to_bytes(self.MSG_LENGTH_BYTES, byteorder="big")
         type_of_payload = type_of_payload.to_bytes(
             self.TYPE_OF_PAYLOAD_BYTES, byteorder="big"
         )
@@ -154,8 +153,7 @@ class Protocol:
             self.DIRECTION
         )  # Direction is always 3c for any packet sent by the flight controller
         # Convert the integers to bytes, NOTE: the byteorder is little endian for the payload
-        msg_length = msg_length.to_bytes(
-            self.MSG_LENGTH_BYTES, byteorder="big")
+        msg_length = msg_length.to_bytes(self.MSG_LENGTH_BYTES, byteorder="big")
         type_of_payload = type_of_payload.to_bytes(
             self.TYPE_OF_PAYLOAD_BYTES, byteorder="big"
         )
@@ -302,7 +300,7 @@ class Protocol:
         thrust = self.TAKEOFF_THRUST
         start_time = time.time()
         self.alt_hold()
-        while(time.time() - start_time < 5):
+        while time.time() - start_time < 5:
             self.set_RPY_THR(thrust=thrust, roll=1495, pitch=1502)
         self.set_RPY_THR(thrust=self.EQUIILIBRIUM_THRUST)
         self.alt_hold(0)
@@ -324,7 +322,7 @@ class Protocol:
         while True:
             if time.time() - start > 3.5:
                 break
-            self.set_RPY_THR(thrust = self.LAND_THRUST)
+            self.set_RPY_THR(thrust=self.LAND_THRUST)
         # self.alt_hold(0)
         self.disarm()
 
@@ -349,8 +347,7 @@ class Protocol:
                 alt_msg = alt_msg + message[8 - i].to_bytes(1, byteorder="big")
             # reverse order of bytes in the change in altitude message
             for i in range(0, 2):
-                var_msg = var_msg + message[10 -
-                                            i].to_bytes(1, byteorder="big")
+                var_msg = var_msg + message[10 - i].to_bytes(1, byteorder="big")
             altitude = int.from_bytes(alt_msg, byteorder="big", signed=True)
             vario = int.from_bytes(var_msg, byteorder="big", signed=True)
             response["altitude"] = altitude * 0.01
@@ -363,7 +360,7 @@ class Protocol:
             for i in range(9):
                 field = b""
                 for j in range(2):
-                    field = field + message[2*i + 6 - j].to_bytes(1, byteorder = "big")
+                    field = field + message[2 * i + 6 - j].to_bytes(1, byteorder="big")
                 field = int.from_bytes(field, byteorder="big", signed=True)
                 response[str(i)] = field
         return response
@@ -377,7 +374,7 @@ class Protocol:
         self.send(self.ALTITUDE_MESSAGE)
         response = self.read(self.ALTITUDE_RESP_LENGTH)
         return self.read_response(response)
-        
+
     def get_imu(self):
         """
         Gets the imu data of the drone
