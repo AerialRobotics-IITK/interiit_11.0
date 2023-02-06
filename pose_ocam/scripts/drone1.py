@@ -7,23 +7,24 @@ import numpy as np
 from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
 from protocol import Protocol
-from params import *
+from env import *
 
 rospy.init_node("controller_1", anonymous=True)
 
 os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
-LOGFILE = os.path.join(LOG_FOLDER_PATH, f"controller/{int(time.time())}.txt")
+LOGFILE = os.path.join(LOG_FOLDER_PATH, f"controller/d1_{int(time.time())}.log")
 log_file = open(LOGFILE, 'w')
 start_time = time.time()
 
 class pidcontroller:
 
-    def __init__(self, kp=[2.5, 2.5, 5], kd=[4, 4, 4.5], ki=[0.001, 0.001, 0.5], eqb_thrust=1500, IP="192.168.0.10", PORT=23):
+    def __init__(self, kp=[4, 4, 2.7], kd=[5, 5, 2.15], ki=[0.05, 0.05, 1.1], eqb_thrust=1550, IP=IP, PORT=PORT):
         
         self.talker = Protocol(IP, PORT)
         self.kp = kp
         self.kd = kd
         self.ki = ki
+        self.tol = 5
         self.prev_time = [0.0, 0.0, 0.0]
         self.error_tol = 0.01
         self.prev_error = [0.0, 0.0, 0.0]
@@ -120,14 +121,17 @@ class pidcontroller:
         if self.curr_pos != targ_pos:
             self.reach_pose = False
         start = time.time()
-        r = rospy.Rate(35)
+        r = rospy.Rate(CONTROLLER_RATE)
         while not rospy.is_shutdown() and time.time() - start < duration:
             self.listener()
+            if (max([abs(targ_pos[0]-self.curr_pos[0]), abs(targ_pos[1]-self.curr_pos[1])])) < self.tol:
+                print("Position Reached!!")
+                break
             self.pos_change(targ_pos)
             r.sleep()
 
 print("time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z", file=log_file)
-pluto = pidcontroller(kp=[4, 4, 2.7], kd=[5, 5, 2.15], ki=[0.05, 0.05, 1.1], eqb_thrust=1550)
+pluto = pidcontroller(kp=[3.5, 3.5, 2.7], kd=[4.3, 4.3, 2.15], ki=[0.05, 0.05, 1.1], eqb_thrust=1550, IP=IP, PORT=PORT)
 pluto.talker.disarm()
 pluto.talker.arm()
 pluto.talker.actual_takeoff()
@@ -136,6 +140,6 @@ pluto.autopilot([40, -40, 80], 8)
 pluto.autopilot([40, 40, 80], 8)
 pluto.autopilot([-40, 40, 80], 8)
 pluto.autopilot([-40, -40, 80], 8)
-pluto.autopilot([-20, -10, 80], 8)
+# pluto.autopilot([-20, -10, 80], 8)
 pluto.talker.actual_land()
 pluto.talker.land()

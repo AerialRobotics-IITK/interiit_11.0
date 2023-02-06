@@ -1,7 +1,7 @@
 import serial
 import time
-from kalman import KalmanFilter
 import numpy as np
+
 class Protocol:
     """
     This class defines the protocol and deals with the communication with the flight controller.
@@ -12,29 +12,27 @@ class Protocol:
                     PORT is the port number of the flight controller
         Initializes the protocol object
         """
-        self.com = serial.serial_for_url(
-            "socket://" + IP + ":" + str(PORT), timeout=1)
+        self.com = serial.serial_for_url("socket://" + IP + ":" + str(PORT), timeout=1)
         self.com.baudrate = baudrate
         self.raw_commands = [1500, 1500, 1200, 1500, 1000, 1500, 2000, 1500]
 
-        # type of payload
+        # Type of payload
         self.SET_RAW_RC = 200
         self.MSP_ALTITUDE = 109
         self.MSP_IMU = 102
 
-        # payload length
+        # Payload length
         self.SET_RAW_RC_LENGTH = 16
 
         # Limits for the arm field in SET_RAW_RC
         self.ARM_UPPER = 1700
         self.ARM_LOWER = 1300
 
-        # payload byte lengths
+        # Payload byte lengths
         self.SET_RAW_RC_BYTE_LENGTHS = [2, 2, 2, 2, 2, 2, 2, 2]
 
         # Length of the response given by the server to an IN packet
         self.COMMAND_RESP_LENGTH = 6
-
         self.ALTITUDE_RESP_LENGTH = 12
         self.IMU_RESP_LENGTH = 24
 
@@ -49,30 +47,30 @@ class Protocol:
         self.TYPE_OF_PAYLOAD_BYTES = 1
         self.CHECKSUM_BYTES = 1
 
+        # Thrust constants
         self.TAKEOFF_THRUST = 1650
         self.LAND_THRUST = 1540
         self.MAX_THRUST = 2100
         self.MIN_THRUST = 900
 
+        # Equilibrium values
         self.EQUIILIBRIUM_ROLL = 1500
         self.EQUIILIBRIUM_PITCH = 1500
         self.EQUIILIBRIUM_YAW = 1500
         self.EQUIILIBRIUM_THRUST = 1570
 
-        self.flag = 0
+        self.flag = 0 # Flag for the ALT_HOLD mode
 
+        # Predefined messages 
         self.ALTITUDE_MESSAGE = self.make_message(
             msg_length=0, type_of_payload=self.MSP_ALTITUDE, payload=[], byte_lengths=[]
         )
-        
         self.IMU_MESSAGE = self.make_message(
             msg_length=0, type_of_payload=self.MSP_IMU, payload=[], byte_lengths=[]
         )
         
         self.GROUND_ALTITUDE = (self.get_altitude())["altitude"]
-
         self.TAKEOFF_ALTITUDE = self.GROUND_ALTITUDE + 0.5
-
         self.SLEEP_TIME = 0.05
 
     def make_takeoff_message(
@@ -102,7 +100,7 @@ class Protocol:
         for i in range(0, len(payload)):
             pl = pl + payload[i].to_bytes(byte_lengths[i], byteorder="little")
 
-        # checksum is the XOR of all the bytes in the payload and the type of payload and the length of the payload
+        # Checksum is the XOR of all the bytes in the payload and the type of payload and the length of the payload
         checksum = msg_length[0] ^ type_of_payload[0]
         for i in range(0, len(pl)):
             checksum = checksum ^ pl[i]
@@ -192,7 +190,6 @@ class Protocol:
         Arguments : None
         Returns : None
         """
-
         self.com.close()
 
     def read(self, size):
@@ -201,7 +198,6 @@ class Protocol:
         Arguments : size is the number of bytes to be read
         Returns : the bytes read from the server
         """
-
         return self.com.read(size)
 
     def is_armed(self):
@@ -210,7 +206,6 @@ class Protocol:
         Arguments : None
         Returns : True if the drone is armed, False otherwise
         """
-
         if (
             self.raw_commands[-1] > self.ARM_LOWER
             and self.raw_commands[-1] < self.ARM_UPPER
@@ -223,7 +218,6 @@ class Protocol:
         Arguments : None
         Returns : None
         """
-
         self.raw_commands[-1] = 1699
         msg = self.make_message(
             msg_length=self.SET_RAW_RC_LENGTH,
@@ -244,7 +238,6 @@ class Protocol:
         Arguments : None
         Returns : None
         """
-
         self.raw_commands[-1] = self.ARM_LOWER - 1
         msg = self.make_message(
             msg_length=self.SET_RAW_RC_LENGTH,
@@ -263,7 +256,6 @@ class Protocol:
         Arguments : roll, pitch, yaw and thrust are the values to be set
         Returns : None
         """
-
         if not self.is_armed():
             # warn if the dronse is not yet armed
             print("WARNING : Drone not armed")
@@ -279,7 +271,6 @@ class Protocol:
             self.raw_commands[-2] = 1300
         if self.flag == 0:
             self.raw_commands[-2] = 2000
-
         msg = self.make_message(
             msg_length=self.SET_RAW_RC_LENGTH,
             type_of_payload=self.SET_RAW_RC,
@@ -325,7 +316,6 @@ class Protocol:
             if time.time() - start > 3.5:
                 break
             self.set_RPY_THR(thrust = self.LAND_THRUST)
-        # self.alt_hold(0)
         self.disarm()
 
     def read_response(self, message):
