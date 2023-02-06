@@ -5,10 +5,8 @@ class KalmanFilter(object):
 
         if(F is None or H is None):
             raise ValueError("Set proper system dynamics.")
-
         self.n = F.shape[1]
         self.m = H.shape[1]
-
         self.F = F
         self.H = H
         self.B = 0 if B is None else B
