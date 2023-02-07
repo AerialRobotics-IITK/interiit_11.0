@@ -4,3 +4,4 @@ logs
 build
 .venv
 *.egg-info
+.project
