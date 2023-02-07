@@ -17,12 +17,12 @@ class Logger:
             except OSError:
                 pass
 
-    def print(self, *args, comma_seperated: bool = False, end: str = "\n", init = False):
+    def print(self, *args, comma_seperated: bool = False, end: str = "\n", init=False):
         if not init:
             self.did_write = True
         if not comma_seperated:
             print(*args, file=self.log_file)
         else:
             for arg in args[:-1]:
-                print(arg, end=",", file=self.log_file, end=end)
+                print(arg, file=self.log_file, end=end)
             print(args[-1], file=self.log_file)
