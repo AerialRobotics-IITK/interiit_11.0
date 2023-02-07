@@ -9,7 +9,7 @@ setup(
     author="Team 43",
     packages=[".plutolib"],
     install_requires=[
-        "serial",
+        "pyserial",
         "numpy",
         "rospy",
     ],

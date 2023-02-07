@@ -24,5 +24,5 @@ class Logger:
             print(*args, file=self.log_file)
         else:
             for arg in args[:-1]:
-                print(arg, end=",", file=self.log_file, end=end)
+                print(arg, file=self.log_file, end=end)
             print(args[-1], file=self.log_file)

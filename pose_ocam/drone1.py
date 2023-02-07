@@ -11,8 +11,8 @@ env = {
     "LOG_FOLDER": "controller1",
 }
 pluto = pidcontroller(
-    kp=[4, 4, 2.7],
-    kd=[5, 5, 2.15],
+    kp=[3.5, 3.5, 2.7],
+    kd=[4.3, 4.3, 2.15],
     ki=[0.05, 0.05, 1.1],
     eqb_thrust=1550,
     env=env,
@@ -26,6 +26,6 @@ pluto.autopilot([40, -40, 80], 8)
 pluto.autopilot([40, 40, 80], 8)
 pluto.autopilot([-40, 40, 80], 8)
 pluto.autopilot([-40, -40, 80], 8)
-pluto.autopilot([-20, -10, 80], 8)
+# pluto.autopilot([-20, -10, 80], 8)
 pluto.talker.actual_land()
 pluto.talker.land()
