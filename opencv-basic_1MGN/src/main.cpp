@@ -56,18 +56,16 @@ std::vector<double> pose_estimate(cv::Mat frame, cv::Mat &camMat, cv::Mat &dist_
 
 void send_pose(std::vector<double> pose)
 {
-    std::string msg = "[";
+    std::string msg = "";
     msg += std::to_string(pose[0]) + ",";
     msg += std::to_string(pose[1]) + ",";
     msg += std::to_string(pose[2]);
-    msg += "]";
     client1.Send(msg);
 
-    msg = "[";
+    msg = "";
     msg += std::to_string(pose[3]) + ",";
     msg += std::to_string(pose[4]) + ",";
     msg += std::to_string(pose[5]);
-    msg += "]";
     client2.Send(msg);
 }
 

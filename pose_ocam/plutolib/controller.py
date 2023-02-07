@@ -7,6 +7,8 @@ from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
 from plutolib.protocol import Protocol
 from plutolib.logger import Logger
+from CppPythonSocket.server import Server
+from plutolib.utils import Filter
 
 
 class pidcontroller:
@@ -39,6 +41,7 @@ class pidcontroller:
             "LOG_FOLDER_PATH": "~/pluto_logs",
             "VERBOSE": False,
             "LOG_FOLDER": "controller",
+            "SERVER_PORT": 5002,
         }
         if env == None:
             env = default_env
@@ -49,6 +52,7 @@ class pidcontroller:
                         key
                     ]  # allot missing keys to env from default_env
         self.pose_topic = pose_topic
+        self.tol = 5
         self.start_time = time.time()
         self.kp = kp
         self.kd = kd
@@ -69,6 +73,11 @@ class pidcontroller:
         self.publishing_rate = publishing_rate
         self.talker = Protocol(env["IP"], env["PORT"])
         self.verbose = env["VERBOSE"]
+        self.x_filter = Filter()
+        self.y_filter = Filter()
+        self.z_filter = Filter()
+
+        self.server = Server("127.0.0.1", env["SERVER_PORT"])
 
         if self.verbose:
             self.logger = Logger(env["LOG_FOLDER_PATH"], env["LOG_FOLDER"])
@@ -76,14 +85,6 @@ class pidcontroller:
                 "time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z",
                 init=True,
             )
-
-    def listener(self):
-        rospy.Subscriber(self.pose_topic, numpy_msg(Floats), self.callback)
-
-    def callback(self, msg):
-        self.curr_pos[0] = msg.data[0]
-        self.curr_pos[1] = msg.data[1]
-        self.curr_pos[2] = msg.data[2]
 
     def talker_pub(self, roll, pitch, yaw, thrust):
         pitch = 1500 + pitch * (1800 / np.pi)
@@ -184,12 +185,21 @@ class pidcontroller:
             duration (int): duration of attempt for reaching the next position
         """
         self.start = time.time()
-        self.listener()
-        if self.curr_pos != targ_pos:
-            self.reach_pose = False
         start = time.time()
-        r = rospy.Rate(self.publishing_rate)
-        while not rospy.is_shutdown() and time.time() - start < duration:
-            self.listener()
+        while time.time() - start < duration:
+            message = self.server.receive()
+            self.curr_pos = np.array(message.split(","))
+            self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
+            self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
+            self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
+            if (
+                max(
+                    [
+                        abs(targ_pos[0] - self.curr_pos[0]),
+                        abs(targ_pos[1] - self.curr_pos[1]),
+                    ]
+                )
+            ) < self.tol:
+                print("Position Reached!!")
+                break
             self.pos_change(targ_pos)
-            r.sleep()
