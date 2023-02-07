@@ -67,11 +67,11 @@ class pidcontroller:
         self.b3d = np.array([0.0] * 3)
         self.re3 = np.array([0.0] * 3)
         self.publishing_rate = publishing_rate
-        self.talker = Protocol(env.IP, env.PORT)
-        self.verbose = env.VERBOSE
+        self.talker = Protocol(env["IP"], env["PORT"])
+        self.verbose = env["VERBOSE"]
 
         if self.verbose:
-            self.logger = Logger(env.LOG_FOLDER_PATH, env.LOG_FOLDER)
+            self.logger = Logger(env["LOG_FOLDER_PATH"], env["LOG_FOLDER"])
             self.logger.print(
                 "time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z",
                 init=True,
