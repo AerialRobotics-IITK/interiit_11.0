@@ -13,8 +13,8 @@ struct timeval tv;
 double MARKER_SIZE = 5.3;
 double DIST_CEILING = 233;
 
-// socket_communication::Client client1("127.0.0.1", 5002);
-// socket_communication::Client client2("127.0.0.1", 5003);
+socket_communication::Client client1("127.0.0.1", 5002);
+socket_communication::Client client2("127.0.0.1", 5003);
 
 cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
@@ -57,18 +57,18 @@ std::vector<double> pose_estimate(cv::Mat frame, cv::Mat &camMat, cv::Mat &dist_
 void send_pose(std::vector<double> pose)
 {
     std::string msg = "[";
-    // msg += std::to_string(pose[0]) + ",";
-    // msg += std::to_string(pose[1]) + ",";
-    // msg += std::to_string(pose[2]);
-    // msg += "]";
-    // client1.Send(msg);
+    msg += std::to_string(pose[0]) + ",";
+    msg += std::to_string(pose[1]) + ",";
+    msg += std::to_string(pose[2]);
+    msg += "]";
+    client1.Send(msg);
 
-    // msg = "[";
-    // msg += std::to_string(pose[3]) + ",";
-    // msg += std::to_string(pose[4]) + ",";
-    // msg += std::to_string(pose[5]);
-    // msg += "]";
-    // client2.Send(msg);
+    msg = "[";
+    msg += std::to_string(pose[3]) + ",";
+    msg += std::to_string(pose[4]) + ",";
+    msg += std::to_string(pose[5]);
+    msg += "]";
+    client2.Send(msg);
 }
 
 /*
@@ -79,8 +79,6 @@ int main(int argc, char *argv[])
 {
     int ct = 0;
     const char *devPath = "/dev/video0";
-    // socket_communication::Client client1("127.0.0.1", 5002);
-    // socket_communication::Client client2("127.0.0.1", 5003);
 
     Withrobot::Camera camera(devPath);
 
@@ -122,7 +120,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    std::string windowName = camName + " " + camSerialNumber;
+    // std::string windowName = camName + " " + camSerialNumber;
     cv::Mat srcImg(cv::Size(camFormat.width, camFormat.height), CV_8UC1), undistImg(cv::Size(camFormat.width, camFormat.height), CV_8UC1);
 
     // camera matrices parameters
@@ -138,32 +136,27 @@ int main(int argc, char *argv[])
         for (int j = 0; j < 3; j++)
             intrinsic.at<double>(i, j) = K[k++];
 
-    cv::namedWindow(windowName.c_str(), cv::WINDOW_KEEPRATIO | cv::WINDOW_AUTOSIZE);
+    // cv::namedWindow(windowName.c_str(), cv::WINDOW_KEEPRATIO | cv::WINDOW_AUTOSIZE);
 
     // Main Loop
     bool quit = false;
     bool undistort = true;
+    std::vector<double> poses;
     while (!quit)
     {
         // blocking
-        std::vector<double> poses;
         int size = camera.get_frame(srcImg.data, camFormat.image_size, 1);
         cv::undistort(srcImg, undistImg, intrinsic, distCoeffs);
-        // if (undistort)
-        // {
-        //     poses = pose_estimate(undistImg, intrinsic, distCoeffs);
-        // }
-        // else
-        // {
-        //     poses = pose_estimate(srcImg, intrinsic, distCoeffs);
-        // }
+        if (undistort)
+        {
+            poses = pose_estimate(undistImg, intrinsic, distCoeffs);
+        }
+        else
+        {
+            poses = pose_estimate(srcImg, intrinsic, distCoeffs);
+        }
 
-        // send_pose(poses);
-
-        // gettimeofday(&tv, NULL);
-        // printf("%ld %d %s\n", tv.tv_sec * 1000 + tv.tv_usec, ct, msg.c_str());
-        // client.Send(msg);
-        // ct++;
+        send_pose(poses);
 
         // If the error occured, restart the camera.
         if (size == -1)
@@ -175,13 +168,13 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        if (undistort)
-            cv::imshow(windowName.c_str(), undistImg);
-        else
-            cv::imshow(windowName.c_str(), srcImg);
-        char key = cv::waitKey(10);
+        // if (undistort)
+        //     cv::imshow(windowName.c_str(), undistImg);
+        // else
+        //     cv::imshow(windowName.c_str(), srcImg);
+        // char key = cv::waitKey(10);
 
-        /* Keyboard options */
+        /* Keyboard options
         switch (key)
         {
         case '/':
@@ -226,10 +219,10 @@ int main(int argc, char *argv[])
         default:
             break;
         }
-        // */
+        */
     }
 
-    cv::destroyAllWindows();
+    // cv::destroyAllWindows();
     camera.stop();
 
     printf("Done.\n");
