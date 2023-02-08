@@ -3,34 +3,61 @@
 ## Installation
 
 ```bash
-mkdir catkin_ws
-cd catkin_ws
-mkdir src
-git clone -b refactored git@github.com:AerialRobotics-IITK/InterIIT_2023.git src
-cd src
+git clone -b refactored git@github.com:AerialRobotics-IITK/interiit_11.0.git
+cd interiit_11.0
 git submodule init
 git submodule update
-catkin build
-source ../devel/setup.bash # setup.zsh otherwise
+```
+
+Install OpenCV 4.2.0
+
+```bash
+sudo apt install libopencv-dev python3-opencv
+```
+
+Create a virtualenv
+
+```bash
+sudo apt install python3.8-venv
+python -m venv ./.venv
+source ./.venv/bin/activate
+```
+
+Install python requirements
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Execution
 
-Run the following to open ocam_ros driver with ros pipeline. Check the file of ocam using `ls /dev/video*`, putting that in device_id
+To build `pose_ocam`
 
 ```bash
-roslaunch ocam ocam_ros.launch show_rqt_image_view:=true device_id:=/dev/video2
+cd pose_ocam
+mkdir build && cd build
+cmake ..
+make
 ```
 
-In another terminal, run the following to obtain /detected topic
+You should find the executable `ocam` inside `build` now.
+Run the following to open ocam_ros driver with ros pipeline. Check the file of ocam using `ls /dev/video*`, check that it's the same in `./pose_ocam/src/main.cpp` as `devpath`. If not, change it and run the script again. Otherwise, to run pose estimation through oCam-1CGN-U, or any of the similar series,
 
 ```bash
-cd pose_ocam/scripts/
-python aruco_ros_ocam.py # this will start a log in src/logs/pose
+./pose_ocam/build/ocam
+```
+
+Note that quality of image would decide it's latency. To improve the parameters, try changing `exposure` and `gain` the same file.
+
+In another terminal, run the following to install package for the controller
+
+```bash
+cd pluto_control
+pip install . # if not done by the above script by chance
 ```
 
 Run the controller in another terminal using
 
 ```bash
-python controller.py # this starts a log in src/logs/controller
+python single.py # this starts a log in src/logs/controller
 ```

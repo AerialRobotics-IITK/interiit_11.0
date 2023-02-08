@@ -1,9 +1,3 @@
-[submodule "ocam"]
-	path = ocam
-	url = git@github.com:AerialRobotics-IITK/ocam.git
-[submodule "opencv-basic_1MGN/cpp_python_socket"]
-	path = opencv-basic_1MGN/cpp_python_socket
-	url = https://github.com/OleguerCanal/cpp_python_socket.git
-[submodule "opencv-basic_1MGN/cpp-python_socket"]
-	path = opencv-basic_1MGN/cpp-python_socket
+[submodule "pose_ocam/cpp-python_socket"]
+	path = pose_ocam/cpp-python_socket
 	url = git@github.com:OleguerCanal/cpp-python_socket.git
