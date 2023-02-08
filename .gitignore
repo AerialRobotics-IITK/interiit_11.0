@@ -5,3 +5,4 @@ build
 .venv
 *.egg-info
 .project
+pluto_logs
