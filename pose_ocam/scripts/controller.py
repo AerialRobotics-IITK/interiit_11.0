@@ -7,7 +7,9 @@ from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
 from protocol import Protocol
 from env import *
+from multiprocessing import shared_memory
 import os
+from std_msgs.msg import Int32
 
 
 class pidcontroller:
@@ -20,13 +22,17 @@ class pidcontroller:
         eqb_thrust=1550,
         IP=IP,
         PORT=PORT,
+        drone_num=1
     ):
-
+        self.temp = np.array([0,], dtype = np.int32)
+        self.escape = 0
+        self.oth = 0
+        self.drone_num = drone_num
         self.talker = Protocol(IP, PORT)
         self.kp = kp
         self.kd = kd
         self.ki = ki
-        self.tol = 5
+        self.tol = 10
         self.prev_time = [0.0, 0.0, 0.0]
         self.error_tol = 0.01
         self.prev_error = [0.0, 0.0, 0.0]
@@ -39,6 +45,7 @@ class pidcontroller:
         self.b3d = np.array([0.0, 0.0, 0.0])
         self.re3 = np.array([0.0, 0.0, 0.0])
         self.pose_sub_topic = pos_sub_topic
+        self.timer_start = None
         os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
         self.LOGFILE = os.path.join(
             LOG_FOLDER_PATH, f"controller/d1_{int(time.time())}.log"
@@ -49,9 +56,19 @@ class pidcontroller:
             "time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z",
             file=self.log_file,
         )
+        self.pub = rospy.Publisher(f'esc{self.drone_num}', Int32, queue_size=1000)
 
     def listener(self):
         rospy.Subscriber(self.pose_sub_topic, numpy_msg(Floats), self.callback)
+
+    def listen(self):
+        if(self.drone_num==1):
+            rospy.Subscriber('esc2', Int32, self.cally)
+        elif(self.drone_num==2):
+            rospy.Subscriber('esc1', Int32, self.cally)
+        
+    def cally(self, msg):
+        self.oth = msg.data
 
     def callback(self, msg):
 
@@ -109,7 +126,7 @@ class pidcontroller:
         self.prev_time[i] = curr_time
         self.prev_error[i] = error
         if i == 0:
-            print(time.time() - start_time, end=",", file=self.log_file)
+            print(time.time() - self.start_time, end=",", file=self.log_file)
         print(
             np.round(self.e_d[i], 0),
             ",",
@@ -120,7 +137,8 @@ class pidcontroller:
             file=self.log_file,
         )
         return (
-            (self.kp[i] * e_p) + (self.kd[i] * self.e_d[i]) + (self.ki[i] * self.e_i[i])
+            (self.kp[i] * e_p) + (self.kd[i] * self.e_d[i]) +
+            (self.ki[i] * self.e_i[i])
         )
 
     def pos_change(self, targ_pos=([0, 0, 0])):
@@ -149,13 +167,13 @@ class pidcontroller:
             self.curr_attitude[1] = -1
 
         self.re3[0] = (
-            (-1) * math.cos(self.curr_attitude[0]) * math.sin(self.curr_attitude[1])
+            (-1) * math.cos(self.curr_attitude[0]
+                            ) * math.sin(self.curr_attitude[1])
         )
         self.re3[1] = math.sin(self.curr_attitude[0])
         self.re3[2] = math.cos(self.curr_attitude[0])
         self.curr_attitude[3] = np.linalg.norm(self.vel)
 
-        # Publishing data to the drone
         self.talker_pub(
             self.curr_attitude[0],
             self.curr_attitude[1],
@@ -167,21 +185,48 @@ class pidcontroller:
 
         self.start = time.time()
         self.listener()
-        if self.curr_pos != targ_pos:
-            self.reach_pose = False
         start = time.time()
         r = rospy.Rate(CONTROLLER_RATE)
         while not rospy.is_shutdown() and time.time() - start < duration:
             self.listener()
-            if (
-                max(
-                    [
-                        abs(targ_pos[0] - self.curr_pos[0]),
-                        abs(targ_pos[1] - self.curr_pos[1]),
-                    ]
-                )
-            ) < self.tol:
-                print("Position Reached!!")
+            if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol:
+                print(f"Drone{self.drone_num} Position Reached!!")
+            self.pos_change(targ_pos)
+            r.sleep()
+
+    def concurrent_autopilot(self, targ_pos, duration):
+
+        self.start = time.time()
+        self.listener()
+        self.escape = 0
+        start = time.time()
+        r = rospy.Rate(CONTROLLER_RATE)
+        exit_cond = False
+        count = 0
+
+        while not rospy.is_shutdown():
+            self.listener()
+            self.listen()
+            self.pub.publish(self.escape)
+            if time.time() - start > duration and count == 0:
+                exit_cond = True
+                count = 1
+                print(f"Drone{self.drone_num} Time Reached!!")
+            if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol and (abs(targ_pos[2] - self.curr_pos[2]) < 25) and count == 0:
+                exit_cond = True
+                count = 1
+                print(f"Drone{self.drone_num} Position Reached!!")
+            if exit_cond and count==1:
+                count = 2
+                if self.escape == 0:
+                    self.escape = 1
+            if exit_cond and self.oth == 1 and self.timer_start is None:
+                print(f"Drone{self.drone_num} escape is {self.escape}")
+                self.pub.publish(self.escape)
+                self.timer_start = time.time()
+            if (self.timer_start is not None) and (time.time() - self.timer_start > 1):
+                print("Deadlock broken!!")
+                self.timer_start = None 
                 break
             self.pos_change(targ_pos)
             r.sleep()

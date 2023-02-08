@@ -9,7 +9,6 @@ from rospy.numpy_msg import numpy_msg
 from protocol import Protocol
 from env import *
 from controller import pidcontroller
-
 rospy.init_node("controller_1", anonymous=True)
 
 pluto = pidcontroller(
@@ -18,17 +17,17 @@ pluto = pidcontroller(
     kd=[4.3, 4.3, 2.15],
     ki=[0.05, 0.05, 1.1],
     eqb_thrust=1550,
-    IP=IP,
+    IP=drone1_ip,
     PORT=PORT,
+    drone_num = 1
 )
 pluto.talker.disarm()
 pluto.talker.arm()
 pluto.talker.actual_takeoff()
-pluto.autopilot([-40, -40, 80], 8)
-pluto.autopilot([40, -40, 80], 8)
-pluto.autopilot([40, 40, 80], 8)
-pluto.autopilot([-40, 40, 80], 8)
-pluto.autopilot([-40, -40, 80], 8)
-# pluto.autopilot([-20, -10, 80], 8)
+pluto.autopilot([-40, -40, 80], 6)
+pluto.autopilot([40, -40, 80], 6)
+pluto.autopilot([40, 40, 80], 6)
+pluto.autopilot([-40, 40, 80], 6)
+pluto.autopilot([-40, -40, 80], 6)
 pluto.talker.actual_land()
 pluto.talker.land()
