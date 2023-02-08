@@ -21,8 +21,8 @@ class Logger:
         if not init:
             self.did_write = True
         if not comma_seperated:
-            print(*args, file=self.log_file)
+            print(*args, file=self.log_file, end=end)
         else:
             for arg in args[:-1]:
-                print(arg, file=self.log_file, end=end)
-            print(args[-1], file=self.log_file)
+                print(arg, file=self.log_file, end=",")
+            print(args[-1], file=self.log_file, end=end)

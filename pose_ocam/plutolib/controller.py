@@ -14,16 +14,15 @@ from plutolib.utils import Filter
 class pidcontroller:
     def __init__(
         self,
-        kp: list = [2.5, 2.5, 5],
-        kd: list = [4, 4, 4.5],
-        ki: list = [0.001, 0.001, 0.5],
+        kp: list = [3.5, 3.5, 2.7],
+        kd: list = [4.3, 4.3, 2.15],
+        ki: list = [0.05, 0.05, 1.1],
         eqb_thrust: int = 1500,
         publishing_rate: int = 35,
         roll_clip=100,
         pitch_clip=100,
         thrust_clip=(1480, 2050),
         env: dict = None,
-        pose_topic="position",
     ):
         """Initialise a PID Controller
 
@@ -51,7 +50,7 @@ class pidcontroller:
                     env[key] = default_env[
                         key
                     ]  # allot missing keys to env from default_env
-        self.pose_topic = pose_topic
+        self.prev_pose = np.array([-1000, -1000, -1000])
         self.tol = 5
         self.start_time = time.time()
         self.kp = kp
@@ -76,7 +75,6 @@ class pidcontroller:
         self.x_filter = Filter()
         self.y_filter = Filter()
         self.z_filter = Filter()
-
         self.server = Server("127.0.0.1", env["SERVER_PORT"])
 
         if self.verbose:
@@ -104,6 +102,7 @@ class pidcontroller:
                 self.curr_pos[1],
                 self.curr_pos[2],
                 comma_seperated=True,
+                end="\n",
             )
 
         self.talker.set_RPY_THR(int(roll), int(pitch), int(yaw), int(thrust))
@@ -177,6 +176,52 @@ class pidcontroller:
             self.curr_attitude[3],
         )
 
+    def concurent_autopilot(self, targ_pos, duration, escape=None):
+        """Implements position control for pluto
+
+        Args:
+            targ_pos (list): list of 3 numbers for the next position to go to
+            duration (int): duration of attempt for reaching the next position
+        """
+        self.start = time.time()
+        start = time.time()
+        exit_cond = False
+        while True:
+            if time.time() - start > duration:
+                exit_cond = True
+            message = self.server.receive()
+            message = message.split(",")
+            print(message)
+            # print(type(message
+            message = np.array([np.float64(x) for x in message])
+            if message[0] == -1000:
+                if self.prev_pose[0] == -1:
+                    continue
+                self.curr_pos = self.prev_pose
+            self.curr_pos = message
+            # print(self.curr_pos[0])
+            # print(type(self.curr_pos[0]))
+            self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
+            self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
+            self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
+            if (
+                max(
+                    [
+                        abs(targ_pos[0] - self.curr_pos[0]),
+                        abs(targ_pos[1] - self.curr_pos[1]),
+                    ]
+                )
+            ) < self.tol:
+                print("Position Reached!!")
+                exit_cond = True
+            if exit_cond:
+                escape[0] = not escape[0]
+
+            if exit_cond and not escape[0]:
+                break
+            self.prev_pose = self.curr_pos
+            self.pos_change(targ_pos)
+
     def autopilot(self, targ_pos, duration):
         """Implements position control for pluto
 
@@ -188,7 +233,16 @@ class pidcontroller:
         start = time.time()
         while time.time() - start < duration:
             message = self.server.receive()
-            self.curr_pos = np.array(message.split(","))
+            message = message.split(",")
+            print(message)
+            message = np.array([np.float64(x) for x in message])
+
+            if message[0] == -1000:
+                if self.prev_pose[0] == -1000:
+                    continue
+                self.curr_pos = self.prev_pose
+            else:
+                self.curr_pos = message
             self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
             self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
             self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
@@ -202,4 +256,5 @@ class pidcontroller:
             ) < self.tol:
                 print("Position Reached!!")
                 break
+            self.prev_pose = self.curr_pos
             self.pos_change(targ_pos)

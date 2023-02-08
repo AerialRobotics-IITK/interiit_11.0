@@ -9,7 +9,7 @@ class Filter:
             self.dt
         )  # For X of marker 1
 
-    def make_kalman(dtime):
+    def make_kalman(self, dtime):
         F = np.array([[1, dtime, 0], [0, 1, dtime], [0, 0, 1]])
         H = np.array([1, 0, 0]).reshape(1, 3)
         Q = np.array([[0.05, 0.05, 0.0], [0.05, 0.05, 0.0], [0.0, 0.0, 0.0]])

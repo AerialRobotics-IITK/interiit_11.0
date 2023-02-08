@@ -16,10 +16,7 @@ if __name__ == "__main__":
     ct = 0
 
     while True:
-        if ct == 1:
-            start_time = time.time()
-        ct += 1
+        start_time = time.time()
         message = server1.receive()
-        if ct == 60:
-            print(time.time() - start_time)
-            break
+        print(message)
+        print("[fps]:", 1.0 / (time.time() - start_time))
