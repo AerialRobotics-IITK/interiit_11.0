@@ -11,7 +11,6 @@ setup(
     install_requires=[
         "pyserial",
         "numpy",
-        "rospy",
     ],
     liscense="MIT",
     py_modules=["controller", "protocol", "kalman", "logger"],
