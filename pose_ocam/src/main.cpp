@@ -18,8 +18,8 @@ double MARKER_SIZE = 5.3;
 double DIST_CEILING = 233;
 const char *devPath = "/dev/video2";
 
-socket_communication::Client client1("127.0.0.1", 5000);
-socket_communication::Client client2("127.0.0.1", 6000);
+socket_communication::Client client1("127.0.0.1", 7000);
+socket_communication::Client client2("127.0.0.1", 7001);
 
 cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
@@ -134,6 +134,7 @@ void send_pose(std::vector<double> pose, int n)
         if (VERBOSE)
             printf("[pose2]: %s\n", msg.c_str());
     }
+    
 }
 
 /**
@@ -168,7 +169,7 @@ void *image_thread(void *args)
     {
         printf("Current Exposure: %d\n", exposure);
         printf("Current Gain: %d\n", gain);
-        exposure = 155, gain = 175;
+        exposure = 220, gain = 180;
         camera.set_control("Gain", gain);
         camera.set_control("Exposure (Absolute)", exposure);
         printf("New Exposure: %d\n", exposure);

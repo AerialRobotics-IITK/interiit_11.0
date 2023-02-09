@@ -1,109 +1,158 @@
+#!/usr/bin/env python3
 import math
 import time
 import numpy as np
 from plutolib.protocol import Protocol
-from plutolib.logger import Logger
+from env import *
+import os
 from CppPythonSocket.server import Server
+import socket
 from plutolib.utils import Filter
 
+HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
+LOG_FOLDER_PATH = "../../logs"
+pi = 3.1415
 
 class pidcontroller:
     def __init__(
         self,
-        kp: list = [3.5, 3.5, 2.7],
-        kd: list = [4.3, 4.3, 2.15],
-        ki: list = [0.05, 0.05, 1.1],
-        eqb_thrust: int = 1500,
-        publishing_rate: int = 35,
-        roll_clip=100,
-        pitch_clip=100,
-        thrust_clip=(1480, 2050),
-        env: dict = None,
+        # pos_sub_topic,
+        server_port,
+        client_port,
+        pose_port,
+        IP,
+        kp=[4, 4, 2.7],
+        kd=[5, 5, 2.15],
+        ki=[0.05, 0.05, 1.1],
+        eqb_thrust=1550,
+        PORT=23,
+        drone_num=1
     ):
-        """Initialise a PID Controller
-
-        Args:
-            kp (list, optional): proporitional gains in roll, pitch, thrust. Defaults to [2.5, 2.5, 5].
-            kd (list, optional): derivative gains in roll, pitch, thrust. Defaults to [4, 4, 4.5].
-            ki (list, optional): integral gains in roll, pitch, thrust. Defaults to [0.001, 0.001, 0.5].
-            eqb_thrust (int, optional): Equilibrium thrust of the UAV. Defaults to 1500.
-            publishing_rate (int, optional): Publishing to the UAV. Defaults to 35.
-            env (dict, optional): environment variables containing IP, PORT, LOG_FOLDER_PATH, VERBOSE. Defaults to default_dict.
-        """
-        default_env = {
-            "IP": "192.168.4.1",
-            "PORT": 23,
-            "LOG_FOLDER_PATH": "~/pluto_logs",
-            "VERBOSE": False,
-            "LOG_FOLDER": "controller",
-            "SERVER_PORT": 5002,
-        }
-        if env == None:
-            env = default_env
-        else:
-            for key in default_env.keys():
-                if env.get(key, None) == None:
-                    env[key] = default_env[
-                        key
-                    ]  # allot missing keys to env from default_env
-        self.prev_pose = np.array([-1000, -1000, -1000])
-        self.tol = 5
-        self.start_time = time.time()
+        self.temp = np.array([0,], dtype = np.int32)
+        self.escape = 0
+        self.oth = 0
+        self.drone_num = drone_num
+        self.talker = Protocol(IP, PORT)
         self.kp = kp
         self.kd = kd
         self.ki = ki
-        self.pitch_clip = pitch_clip
-        self.roll_clip = roll_clip
-        self.thrust_clip = thrust_clip
-        self.prev_time = [0.0] * 3
-        self.prev_error = [0.0] * 3
-        self.e_i = [0.0] * 3
-        self.e_d = [0.0] * 3
-        self.vel = np.array([0.0] * 3)
-        self.curr_pos = [0.0] * 3
-        self.curr_attitude = [0] * 4
+        self.tol = 10
+        self.prev_time = [0.0, 0.0, 0.0]
+        self.error_tol = 0.01
+        self.prev_error = [0.0, 0.0, 0.0]
+        self.e_i = [0.0, 0.0, 0]
+        self.e_d = [0.0, 0.0, 0.0]
+        self.vel = np.array([0.0, 0.0, 0.0])
+        self.curr_pos = [0.0, 0.0, 0.0]
+        self.curr_attitude = [0, 0, 0, 0]
         self.equilibrium_thrust = eqb_thrust
-        self.b3d = np.array([0.0] * 3)
-        self.re3 = np.array([0.0] * 3)
-        self.publishing_rate = publishing_rate
-        self.talker = Protocol(env["IP"], env["PORT"])
-        self.verbose = env["VERBOSE"]
+        self.b3d = np.array([0.0, 0.0, 0.0])
+        self.re3 = np.array([0.0, 0.0, 0.0])
+        self.prev_pose = np.array([-1000,-1000,-1000])
+        # self.pose_sub_topic = pos_sub_topic
+        self.timer_start = None
         self.x_filter = Filter(r=0.5)
         self.y_filter = Filter(r=0.5)
         self.z_filter = Filter(r=0.5)
-        self.server = Server("127.0.0.1", env["SERVER_PORT"])
+        self.verbose = False
 
-        if self.verbose:
-            self.logger = Logger(env["LOG_FOLDER_PATH"], env["LOG_FOLDER"])
-            self.logger.print(
-                "time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z",
-                init=True,
-            )
+        # server/client thing
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((HOST, server_port))
+        self.pose_server = Server("127.0.0.1", pose_port)
+        self.client = None
+
+        if(self.drone_num==1):
+            self.server.listen()
+            self.conn, self.addr = self.server.accept()
+            # sleep for 1 second to connect
+            time.sleep(1)
+            self.client = socket.socket().connect((HOST, client_port))
+            print(f"Connected to {self.addr}")
+
+        elif(self.drone_num==2):
+            time.sleep(1)
+            self.client = socket.socket().connect((HOST, client_port))
+            # sleep for 1 second to connect
+            self.server.listen()
+            self.conn, self.addr = self.server.accept()
+            print(f"Connected to {self.addr}")
+            
+        os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
+        self.LOGFILE = os.path.join(
+            LOG_FOLDER_PATH, f"controller/d1_{int(time.time())}.log"
+        )
+        self.log_file = open(self.LOGFILE, "w")
+        self.start_time = time.time()
+        print(
+            "time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z",
+            file=self.log_file,
+        )
+
+    def callback(self, msg):
+
+        self.curr_pos[0] = msg.data[0]
+        self.curr_pos[1] = msg.data[1]
+        self.curr_pos[2] = msg.data[2]
+
+    def listener(self):
+        message = self.pose_server.receive()
+        message = message.split(",")
+        print(message)
+        message = np.array([np.float64(x) for x in message])
+
+        if message[0] == -1000:
+            if self.prev_pose[0] == -1000:
+                return
+            self.curr_pos = self.prev_pose
+        else:
+            self.curr_pos = message
+        self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
+        self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
+        self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
+
+    def listen(self):
+        msg = self.conn.recv(1024).decode()
+        if not msg:
+            return
+        self.oth = int(msg)
+
+    def clip(self, parameter, low, high):
+
+        if parameter < low:
+            parameter = low
+        elif parameter > high:
+            parameter = high
+        return parameter
 
     def talker_pub(self, roll, pitch, yaw, thrust):
-        pitch = 1500 + pitch * (1800 / np.pi)
-        pitch = np.clip(pitch, 1500 - self.pitch_clip, 1500 + self.pitch_clip)
-        roll = 1500 + roll * (1800 / np.pi)
-        roll = np.clip(roll, 1500 - self.roll_clip, 1500 + self.roll_clip)
-        thrust = np.clip(thrust, np.min(self.thrust_clip), np.max(self.thrust_clip))
-        yaw = 1500  # hardcoded
 
-        if self.verbose:
-            self.logger.print(
-                roll,
-                pitch,
-                yaw,
-                thrust,
-                self.curr_pos[0],
-                self.curr_pos[1],
-                self.curr_pos[2],
-                comma_seperated=True,
-                end="\n",
-            )
-
+        pitch = 1500 + pitch * (1800 / pi)
+        pitch = self.clip(pitch, 1400, 1600)
+        roll = 1500 + roll * (1800 / pi)
+        roll = self.clip(roll, 1400, 1600)
+        thrust = self.clip(thrust, 1480, 2099)
+        yaw = 1510
+        print(
+            roll,
+            ",",
+            pitch,
+            ",",
+            yaw,
+            ",",
+            thrust,
+            ",",
+            self.curr_pos[0],
+            ",",
+            self.curr_pos[1],
+            ",",
+            self.curr_pos[2],
+            file=self.log_file,
+        )
         self.talker.set_RPY_THR(int(roll), int(pitch), int(yaw), int(thrust))
 
     def calc_error(self, i, error):
+
         curr_time = time.time()
         dt = 0.0
         if self.prev_time[i] != 0.0:
@@ -117,23 +166,24 @@ class pidcontroller:
             self.e_d[i] = de / dt
         self.prev_time[i] = curr_time
         self.prev_error[i] = error
-
-        if i == 0 and self.verbose:
-            self.logger.print(time.time() - self.start_time, end=",")
-        if self.verbose:
-            self.logger.print(
-                np.round(self.e_d[i], 0),
-                e_p,
-                self.e_i[i],
-                comma_seperated=True,
-                end=",",
-            )
-
+        if i == 0:
+            print(time.time() - self.start_time, end=",", file=self.log_file)
+        print(
+            np.round(self.e_d[i], 0),
+            ",",
+            e_p,
+            ",",
+            self.e_i[i],
+            end=",",
+            file=self.log_file,
+        )
         return (
-            (self.kp[i] * e_p) + (self.kd[i] * self.e_d[i]) + (self.ki[i] * self.e_i[i])
+            (self.kp[i] * e_p) + (self.kd[i] * self.e_d[i]) +
+            (self.ki[i] * self.e_i[i])
         )
 
     def pos_change(self, targ_pos=([0, 0, 0])):
+
         errors = (
             targ_pos[0] - self.curr_pos[0],
             targ_pos[1] - self.curr_pos[1],
@@ -158,13 +208,13 @@ class pidcontroller:
             self.curr_attitude[1] = -1
 
         self.re3[0] = (
-            (-1) * math.cos(self.curr_attitude[0]) * math.sin(self.curr_attitude[1])
+            (-1) * math.cos(self.curr_attitude[0]
+                            ) * math.sin(self.curr_attitude[1])
         )
         self.re3[1] = math.sin(self.curr_attitude[0])
         self.re3[2] = math.cos(self.curr_attitude[0])
         self.curr_attitude[3] = np.linalg.norm(self.vel)
 
-        # Publishing data to the drone
         self.talker_pub(
             self.curr_attitude[0],
             self.curr_attitude[1],
@@ -172,85 +222,48 @@ class pidcontroller:
             self.curr_attitude[3],
         )
 
-    def concurent_autopilot(self, targ_pos, duration, escape=None):
-        """Implements position control for pluto
-
-        Args:
-            targ_pos (list): list of 3 numbers for the next position to go to
-            duration (int): duration of attempt for reaching the next position
-        """
-        self.start = time.time()
-        start = time.time()
-        exit_cond = False
-        while True:
-            if time.time() - start > duration:
-                exit_cond = True
-            message = self.server.receive()
-            message = message.split(",")
-            print(message)
-            # print(type(message
-            message = np.array([np.float64(x) for x in message])
-            if message[0] == -1000:
-                if self.prev_pose[0] == -1:
-                    continue
-                self.curr_pos = self.prev_pose
-            self.curr_pos = message
-            # print(self.curr_pos[0])
-            # print(type(self.curr_pos[0]))
-            self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
-            self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
-            self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
-            if (
-                max(
-                    [
-                        abs(targ_pos[0] - self.curr_pos[0]),
-                        abs(targ_pos[1] - self.curr_pos[1]),
-                    ]
-                )
-            ) < self.tol:
-                print("Position Reached!!")
-                exit_cond = True
-            if exit_cond:
-                escape[0] = not escape[0]
-
-            if exit_cond and not escape[0]:
-                break
-            self.prev_pose = self.curr_pos
-            self.pos_change(targ_pos)
-
     def autopilot(self, targ_pos, duration):
-        """Implements position control for pluto
 
-        Args:
-            targ_pos (list): list of 3 numbers for the next position to go to
-            duration (int): duration of attempt for reaching the next position
-        """
         self.start = time.time()
+        self.listener()
         start = time.time()
         while time.time() - start < duration:
-            message = self.server.receive()
-            message = message.split(",")
-            print(message)
-            message = np.array([np.float64(x) for x in message])
+            self.listener()
+            if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol:
+                print(f"Drone{self.drone_num} Position Reached!!")
+            self.pos_change(targ_pos)
 
-            if message[0] == -1000:
-                if self.prev_pose[0] == -1000:
-                    continue
-                self.curr_pos = self.prev_pose
-            else:
-                self.curr_pos = message
-            self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
-            self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
-            self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
-            if (
-                max(
-                    [
-                        abs(targ_pos[0] - self.curr_pos[0]),
-                        abs(targ_pos[1] - self.curr_pos[1]),
-                    ]
-                )
-            ) < self.tol:
-                print("Position Reached!!")
+    def concurrent_autopilot(self, targ_pos, duration):
+
+        self.start = time.time()
+        self.listener()
+        self.escape = 0
+        start = time.time()
+        exit_cond = False
+        count = 0
+
+        while True:
+            self.listener()
+            self.listen()
+            self.conn.send(f"{self.escape}".encode())
+            if time.time() - start > duration and count == 0:
+                exit_cond = True
+                count = 1
+                print(f"Drone{self.drone_num} Time Reached!!")
+            if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol and (abs(targ_pos[2] - self.curr_pos[2]) < 25) and count == 0:
+                exit_cond = True
+                count = 1
+                print(f"Drone{self.drone_num} Position Reached!!")
+            if exit_cond and count==1:
+                count = 2
+                if self.escape == 0:
+                    self.escape = 1
+            if exit_cond and self.oth == 1 and self.timer_start is None:
+                print(f"Drone{self.drone_num} escape is {self.escape}")
+                self.server.send(f"{self.escape}".encode())
+                self.timer_start = time.time()
+            if (self.timer_start is not None) and (time.time() - self.timer_start > 1):
+                print("Deadlock broken!!")
+                self.timer_start = None 
                 break
-            self.prev_pose = self.curr_pos
             self.pos_change(targ_pos)
