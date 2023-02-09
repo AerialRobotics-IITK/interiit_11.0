@@ -1,20 +1,18 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/time.h>
-#include <string>
-#include <vector>
-#include <signal.h>
+/**
+ * @file main.cpp
+ * @author interiit-11.0: team 43
+ * @brief pose-estimation node that sends pose feedback to python nodes via socket communication
+ * Note that if you observe frame drops below @40fps, adjust exposure with "[","]" and gain with "-","="
+ * @version 0.1
+ * @date 2023-02-09
+ *
+ * @copyright Copyright (c) 2023
+ *
+ */
 
-#include <pthread.h>
-#include <boost/shared_ptr.hpp>
-
-#include <opencv2/aruco.hpp>
-#include <opencv2/opencv.hpp>
+#include "utils.hpp"
 #include "withrobot_camera.hpp" /* withrobot camera API */
 #include "client.hpp"
-
-#define deb(x) printf("[DBG]: %s\n", x);
 
 double MARKER_SIZE = 5.3;
 double DIST_CEILING = 233;
@@ -42,38 +40,21 @@ pthread_mutex_t mutex_img, mutex_format;
 // thread
 pthread_t img_thread;
 
-class tictoc
+/**
+ * @brief Handling SIGINT call
+ *
+ * @param _
+ */
+void sig_handler(int _)
 {
-public:
-    tictoc(std::string prefix)
-    {
-        prefix_ = prefix;
-    }
-    void tic(void)
-    {
-        t1 = std::chrono::steady_clock::now();
-    }
-
-    float toc(void)
-    {
-        t2 = std::chrono::steady_clock::now();
-        time_ms = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count() * 1000.0;
-        return time_ms;
-    }
-
-    void toc_print(void)
-    {
-        t2 = std::chrono::steady_clock::now();
-        time_ms = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count() * 1000.0;
-        printf("[%s]: Time elapsed: %fms\n", prefix_.c_str(), time_ms);
-    }
-
-private:
-    std::chrono::steady_clock::time_point t1;
-    std::chrono::steady_clock::time_point t2;
-    float time_ms;
-    std::string prefix_;
-};
+    (void)_;
+    quit = true;
+    pthread_cancel(img_thread);
+    pthread_mutex_destroy(&mutex_format);
+    pthread_mutex_destroy(&mutex_img);
+    deb("Done");
+    exit(0);
+}
 
 /**
  * @brief Estimate pose in cv::Mat using cv/aruco
@@ -86,7 +67,7 @@ private:
 
 std::vector<double> pose_estimate(cv::Mat &frame, cv::Mat &camMat, cv::Mat &dist_coeff)
 {
-    static tictoc timeCheck("pose");
+    // static tictoc timeCheck("pose");
 
     std::vector<double> b = {-1000, -1000, -1000, -1000, -1000, -1000};
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
@@ -94,10 +75,9 @@ std::vector<double> pose_estimate(cv::Mat &frame, cv::Mat &camMat, cv::Mat &dist
 
     // parameters->
 
-    timeCheck.tic();
+    // timeCheck.tic();
     cv::aruco::detectMarkers(frame, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
-    timeCheck.toc();
-    timeCheck.toc_print();
+    // timeCheck.toc_print();
 
     if (markerIds.size() != 0)
     {
@@ -137,6 +117,7 @@ void send_pose(std::vector<double> pose, int n)
     msg += std::to_string(pose[1]) + ",";
     msg += std::to_string(pose[2]);
     client1.Send(msg);
+    // printf("[pose1]: %s\n", msg.c_str());
 
     if (n == 2)
     {
@@ -145,6 +126,7 @@ void send_pose(std::vector<double> pose, int n)
         msg += std::to_string(pose[4]) + ",";
         msg += std::to_string(pose[5]);
         client2.Send(msg);
+        // printf("[pose2]: %s\n", msg.c_str());
     }
 }
 
@@ -158,7 +140,9 @@ void *image_thread(void *args)
 {
     deb("Thread started");
     Withrobot::Camera camera(devPath);
-    tictoc timeCheck("image_thread");
+
+    static tictoc timeCheck("image_thread");
+
     camera.set_format(1280, 720, Withrobot::fourcc_to_pixformat('G', 'R', 'E', 'Y'), 1, 60);
 
     pthread_mutex_lock(&mutex_format);
@@ -174,13 +158,16 @@ void *image_thread(void *args)
     int gain = camera.get_control("Gain");
     int exposure = camera.get_control("Exposure (Absolute)");
 
-    printf("Current Exposure: %d\n", exposure);
-    printf("Current Gain: %d\n", gain);
-    exposure = 200, gain = 150;
-    camera.set_control("Gain", gain);
-    camera.set_control("Exposure (Absolute)", exposure);
-    printf("New Exposure: %d\n", exposure);
-    printf("New Gain: %d\n", gain);
+    if (VERBOSE)
+    {
+        printf("Current Exposure: %d\n", exposure);
+        printf("Current Gain: %d\n", gain);
+        exposure = 200, gain = 150;
+        camera.set_control("Gain", gain);
+        camera.set_control("Exposure (Absolute)", exposure);
+        printf("New Exposure: %d\n", exposure);
+        printf("New Gain: %d\n", gain);
+    }
 
     if (!camera.start())
     {
@@ -215,28 +202,36 @@ void *image_thread(void *args)
             }
         }
         pthread_mutex_unlock(&mutex_img);
-        timeCheck.toc();
-        timeCheck.toc_print();
+        cv::imshow("img", undistImg);
+        char key = cv::waitKey(1);
+        switch (key)
+        {
+        case 'q':
+            sig_handler(1);
+            break;
+        case '[':
+            exposure = camera.get_control("Exposure (Absolute)");
+            camera.set_control("Exposure (Absolute)", --exposure);
+            break;
+        case ']':
+            exposure = camera.get_control("Exposure (Absolute)");
+            camera.set_control("Exposure (Absolute)", ++exposure);
+            break;
+        case '-':
+            exposure = camera.get_control("Gain");
+            camera.set_control("Gain", --gain);
+            break;
+        case '=':
+            exposure = camera.get_control("Gain");
+            camera.set_control("Gain", ++gain);
+            break;
+        }
 
         usleep(1000);
+        timeCheck.toc_print();
     }
     camera.stop();
     return NULL;
-}
-
-/**
- * @brief Handling SIGINT call
- *
- * @param _
- */
-void sig_handler(int _)
-{
-    (void)_;
-    quit = true;
-    pthread_cancel(img_thread);
-    pthread_mutex_destroy(&mutex_format);
-    pthread_mutex_destroy(&mutex_img);
-    deb("Done");
 }
 
 /**
@@ -246,6 +241,8 @@ int main(int argc, char **argv)
 {
     // signal(SIGINT, sig_handler);
     int n = atoi(argv[1]);
+    if (argc == 3)
+        VERBOSE = atoi(argv[2]);
     double D[5] = {-0.411342, 0.158145, 0.000504, 0.000315, 0.000000};
     double K[9] = {963.304385, 0.000000, 637.039646, 0.000000, 965.910111, 479.796409, 0.000000, 0.000000, 1.000000};
     for (int i = 0; i < 5; i++)
@@ -280,16 +277,25 @@ int main(int argc, char **argv)
     cv::Mat srcImg(cv::Size(camFormat.width, camFormat.height), CV_8UC1);
 
     std::vector<double> poses(6);
+    int skipped = 0;
+    double skipped_time = 0;
+    bool initial_time = true;
     // Main Loop
     while (1)
     {
-
+        if (initial_time)
+        {
+            timeCheck.tic();
+            initial_time = false;
+        }
         // printf("Inside process loop\n");
         pthread_mutex_lock(&mutex_img);
         {
             if (!ready_image) // if image not ready, retry
             {
                 pthread_mutex_unlock(&mutex_img);
+                skipped++;
+                skipped_time += timeCheck.toc();
                 continue;
             }
             global_image.copyTo(srcImg);
@@ -298,12 +304,13 @@ int main(int argc, char **argv)
         pthread_mutex_unlock(&mutex_img);
         poses = pose_estimate(srcImg, intrinsic, distCoeffs);
 
-        cv::imshow("img", srcImg);
-        cv::waitKey(1);
-
         send_pose(poses, n); // forward pose
-
         usleep(1000);
+
+        timeCheck.toc_print();
+        initial_time = true;
+        skipped = 0;
+        skipped_time = 0;
     }
 
     return 0;

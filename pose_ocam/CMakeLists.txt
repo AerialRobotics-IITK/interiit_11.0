@@ -12,10 +12,6 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 find_package(OpenCV REQUIRED)
 
-# find_package(PkgConfig)
-
-# # use pkg-config to get hints for 0mq locations
-# pkg_check_modules(PC_ZeroMQ QUIET zmq)
 add_subdirectory(cpp-python_socket/cpp)
 include_directories(
     include
@@ -24,5 +20,3 @@ include_directories(
 
 add_executable(ocam src/main.cpp src/withrobot_camera.cpp src/withrobot_utility.cpp)
 target_link_libraries(ocam ${OpenCV_LIBS} cpp_sockets -lv4l2 -ludev)
-
-# add_dependencies(ocam ${PROJECT_NAME}_gencfg)

@@ -1,6 +1,7 @@
 from CppPythonSocket.server import Server
 import datetime
 import time
+from plutolib.utils import Filter
 
 
 def TimestampMillisec64():
@@ -13,10 +14,12 @@ def TimestampMillisec64():
 if __name__ == "__main__":
     server1 = Server("127.0.0.1", 5003)
     # Check that connection works
-    ct = 0
+    fps_estimate = Filter(r=1)
 
     while True:
         start_time = time.time()
         message = server1.receive()
         print(message)
-        print("[fps]:", 1.0 / (time.time() - start_time))
+        fps = 1.0 / (time.time() - start_time)
+        fps = fps_estimate.predict_kalman(fps)
+        print("[fps]:", fps)

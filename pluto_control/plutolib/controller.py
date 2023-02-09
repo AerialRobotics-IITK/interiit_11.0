@@ -68,9 +68,9 @@ class pidcontroller:
         self.publishing_rate = publishing_rate
         self.talker = Protocol(env["IP"], env["PORT"])
         self.verbose = env["VERBOSE"]
-        self.x_filter = Filter()
-        self.y_filter = Filter()
-        self.z_filter = Filter()
+        self.x_filter = Filter(r=0.5)
+        self.y_filter = Filter(r=0.5)
+        self.z_filter = Filter(r=0.5)
         self.server = Server("127.0.0.1", env["SERVER_PORT"])
 
         if self.verbose:

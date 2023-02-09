@@ -1,3 +1,14 @@
+/**
+ * @file main_singlethread.cpp
+ * @author interiit-11.0: team 43
+ * @brief used for benchmarking the frame drop wrt threaded pose_estimation
+ * @version 0.1
+ * @date 2023-02-09
+ *
+ * @copyright Copyright (c) 2023
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
