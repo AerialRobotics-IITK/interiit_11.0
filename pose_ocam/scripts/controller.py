@@ -10,12 +10,19 @@ from env import *
 from multiprocessing import shared_memory
 import os
 from std_msgs.msg import Int32
+from CppPythonSocket.server import Server
 
+import socket
+
+HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
 
 class pidcontroller:
     def __init__(
         self,
         pos_sub_topic,
+        server_port,
+        client_port,
+        pose_port=7000,
         kp=[4, 4, 2.7],
         kd=[5, 5, 2.15],
         ki=[0.05, 0.05, 1.1],
@@ -46,6 +53,20 @@ class pidcontroller:
         self.re3 = np.array([0.0, 0.0, 0.0])
         self.pose_sub_topic = pos_sub_topic
         self.timer_start = None
+
+        # server/client thing
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind((HOST, server_port))
+        print("waiting for connections")
+        server.listen()
+        # sleep for 2 seconds to start server
+        time.sleep(2)
+        self.conn, self.addr = server.accept()
+        print(f"Connected to {addr}")
+        self.client = server.connect((HOST, client_port))
+        self.pose_client = server.connect((HOST, pose_port))
+
+
         os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
         self.LOGFILE = os.path.join(
             LOG_FOLDER_PATH, f"controller/d1_{int(time.time())}.log"
@@ -56,19 +77,33 @@ class pidcontroller:
             "time,e_d_x,e_p_x,e_i_x,e_d_y,e_p_y,e_i_y,e_d_z,e_p_z,e_i_z,roll,pitch,yaw,thrust,x,y,z",
             file=self.log_file,
         )
-        self.pub = rospy.Publisher(f'esc{self.drone_num}', Int32, queue_size=1000)
+        # self.pub = rospy.Publisher(f'esc{self.drone_num}', Int32, queue_size=1000)
 
     def listener(self):
-        rospy.Subscriber(self.pose_sub_topic, numpy_msg(Floats), self.callback)
+        # rospy.Subscriber(self.pose_sub_topic, numpy_msg(Floats), self.callback)
+        message = self.server.receive()
+        message = message.split(",")
+        print(message)
+        message = np.array([np.float64(x) for x in message])
+
+        if message[0] == -1000:
+            if self.prev_pose[0] == -1000:
+                continue
+            self.curr_pos = self.prev_pose
+        else:
+            self.curr_pos = message
+        self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
+        self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
+        self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
 
     def listen(self):
-        if(self.drone_num==1):
-            rospy.Subscriber('esc2', Int32, self.cally)
-        elif(self.drone_num==2):
-            rospy.Subscriber('esc1', Int32, self.cally)
+        msg = client.read(1024).decode('utf-8')
+        self.oth = int(msg)
+        # self.cally(int(msg))
+        # rospy.Subscriber('esc1', Int32, self.cally)
         
     def cally(self, msg):
-        self.oth = msg.data
+        self.oth = msg
 
     def callback(self, msg):
 
@@ -186,8 +221,8 @@ class pidcontroller:
         self.start = time.time()
         self.listener()
         start = time.time()
-        r = rospy.Rate(CONTROLLER_RATE)
-        while not rospy.is_shutdown() and time.time() - start < duration:
+        # r = rospy.Rate(CONTROLLER_RATE)
+        while time.time() - start < duration:
             self.listener()
             if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol:
                 print(f"Drone{self.drone_num} Position Reached!!")
