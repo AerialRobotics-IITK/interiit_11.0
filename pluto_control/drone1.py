@@ -1,31 +1,38 @@
-import rospy
+#!/usr/bin/env python3
 from plutolib.controller import pidcontroller
 
-rospy.init_node("controller_1", anonymous=True)
 
-env = {
-    "IP": "192.168.4.1",
-    "PORT": 23,
-    "LOG_FOLDER_PATH": "../../logs",
-    "VERBOSE": False,
-    "LOG_FOLDER": "controller1",
-}
-pluto = pidcontroller(
-    kp=[3.5, 3.5, 2.7],
-    kd=[4.3, 4.3, 2.15],
-    ki=[0.05, 0.05, 1.1],
-    eqb_thrust=1550,
-    env=env,
-    pose_topic="position_1",
-)
-pluto.talker.disarm()
-pluto.talker.arm()
-pluto.talker.actual_takeoff()
-pluto.autopilot([-40, -40, 80], 8)
-pluto.autopilot([40, -40, 80], 8)
-pluto.autopilot([40, 40, 80], 8)
-pluto.autopilot([-40, 40, 80], 8)
-pluto.autopilot([-40, -40, 80], 8)
-# pluto.autopilot([-20, -10, 80], 8)
-pluto.talker.actual_land()
-pluto.talker.land()
+def run_drone(point_list):
+    pluto = pidcontroller(
+        env={
+            "IP": "192.168.4.1",
+            "PORT": 23,
+            "LOG_FOLDER_PATH": "../pluto_logs",
+            "VERBOSE": True,
+            "LOG_FOLDER": "controller",
+            "SERVER_PORT": 5002,
+        }
+    )
+    pluto.talker.disarm()
+    pluto.talker.arm()
+    pluto.talker.actual_takeoff()
+    i = 0
+    while True:
+        pluto.autopilot(point_list[i], duration=8)
+        i = i + 1
+        if i == len(point_list):
+            break
+    pluto.talker.actual_land()
+    pluto.talker.land()
+
+
+drone_points = [
+    [-40, -40, 80],
+    [40, -40, 80],
+    [40, 40, 80],
+    [-40, 40, 80],
+    [-40, -40, 80],
+]
+
+if __name__ == "__main__":
+    run_drone(drone_points)

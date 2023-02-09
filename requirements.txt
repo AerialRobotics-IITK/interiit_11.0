@@ -16,3 +16,4 @@ setuptools            44.0.0
 six                   1.16.0  
 wheel                 0.38.4  
 matplotlib            3.6.3
+CppPythonSocket       0.2.2

@@ -40,8 +40,8 @@ cmake ..
 make
 ```
 
-You should find the executable `ocam` inside `build` now.
-Run the following to open ocam_ros driver with ros pipeline. Check the file of ocam using `ls /dev/video*`, check that it's the same in `./pose_ocam/src/main.cpp` as `devpath`. If not, change it and run the script again. Otherwise, to run pose estimation through oCam-1CGN-U, or any of the similar series,
+You should find the executable `ocam` inside `build` now.  
+Check the file of ocam using `ls /dev/video*`, check that it's the same in `./pose_ocam/src/main.cpp` as `devpath`. If not, change it and run the script again. Otherwise, to run pose estimation through oCam-1CGN-U, or any of the similar series,
 
 ```bash
 ./pose_ocam/build/ocam
