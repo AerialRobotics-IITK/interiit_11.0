@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 import math
 import time
-import rospy
 import numpy as np
-from rospy_tutorials.msg import Floats
-from rospy.numpy_msg import numpy_msg
 from protocol import Protocol
 from env import *
-from multiprocessing import shared_memory
 import os
-from std_msgs.msg import Int32
 from CppPythonSocket.server import Server
 
 import socket
@@ -19,10 +14,10 @@ HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
 class pidcontroller:
     def __init__(
         self,
-        pos_sub_topic,
+        # pos_sub_topic,
         server_port,
         client_port,
-        pose_port=7000,
+        pose_port,
         kp=[4, 4, 2.7],
         kd=[5, 5, 2.15],
         ki=[0.05, 0.05, 1.1],
@@ -51,20 +46,22 @@ class pidcontroller:
         self.equilibrium_thrust = eqb_thrust
         self.b3d = np.array([0.0, 0.0, 0.0])
         self.re3 = np.array([0.0, 0.0, 0.0])
-        self.pose_sub_topic = pos_sub_topic
+        # self.pose_sub_topic = pos_sub_topic
         self.timer_start = None
 
         # server/client thing
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind((HOST, server_port))
-        print("waiting for connections")
-        server.listen()
+        self.server.bind((HOST, server_port))
+        self.pose_server = Server("127.0.0.1", pose_port)
+        print("Started pose and reached server\n waiting for connections")
         # sleep for 2 seconds to start server
         time.sleep(2)
-        self.conn, self.addr = server.accept()
-        print(f"Connected to {addr}")
-        self.client = server.connect((HOST, client_port))
-        self.pose_client = server.connect((HOST, pose_port))
+        self.server.listen(1)
+        self.conn, self.addr = self.server.accept()
+        # sleep for 1 second to connect
+        time.sleep(1)
+        print(f"Connected to {self.addr}")
+        self.client = self.server.connect((HOST, client_port))
 
 
         os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
@@ -78,29 +75,6 @@ class pidcontroller:
             file=self.log_file,
         )
         # self.pub = rospy.Publisher(f'esc{self.drone_num}', Int32, queue_size=1000)
-
-    def listener(self):
-        # rospy.Subscriber(self.pose_sub_topic, numpy_msg(Floats), self.callback)
-        message = self.server.receive()
-        message = message.split(",")
-        print(message)
-        message = np.array([np.float64(x) for x in message])
-
-        if message[0] == -1000:
-            if self.prev_pose[0] == -1000:
-                continue
-            self.curr_pos = self.prev_pose
-        else:
-            self.curr_pos = message
-        self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
-        self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
-        self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
-
-    def listen(self):
-        msg = client.read(1024).decode('utf-8')
-        self.oth = int(msg)
-        # self.cally(int(msg))
-        # rospy.Subscriber('esc1', Int32, self.cally)
         
     def cally(self, msg):
         self.oth = msg
@@ -110,6 +84,29 @@ class pidcontroller:
         self.curr_pos[0] = msg.data[0]
         self.curr_pos[1] = msg.data[1]
         self.curr_pos[2] = msg.data[2]
+
+    def listener(self):
+        # rospy.Subscriber(self.pose_sub_topic, numpy_msg(Floats), self.callback)
+        message = self.pose_server.receive()
+        message = message.split(",")
+        print(message)
+        message = np.array([np.float64(x) for x in message])
+
+        if message[0] == -1000:
+            if self.prev_pose[0] == -1000:
+                pass
+            self.curr_pos = self.prev_pose
+        else:
+            self.curr_pos = message
+        self.curr_pos[0] = self.x_filter.predict_kalman(self.curr_pos[0])
+        self.curr_pos[1] = self.y_filter.predict_kalman(self.curr_pos[1])
+        self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
+
+    def listen(self):
+        msg = self.client.read(1024).decode('utf-8')
+        self.oth = int(msg)
+        # self.cally(int(msg))
+        # rospy.Subscriber('esc1', Int32, self.cally)
 
     def clip(self, parameter, low, high):
 
@@ -227,7 +224,7 @@ class pidcontroller:
             if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol:
                 print(f"Drone{self.drone_num} Position Reached!!")
             self.pos_change(targ_pos)
-            r.sleep()
+            # r.sleep()
 
     def concurrent_autopilot(self, targ_pos, duration):
 
@@ -235,14 +232,15 @@ class pidcontroller:
         self.listener()
         self.escape = 0
         start = time.time()
-        r = rospy.Rate(CONTROLLER_RATE)
+        # r = rospy.Rate(CONTROLLER_RATE)
         exit_cond = False
         count = 0
 
-        while not rospy.is_shutdown():
+        while True:
             self.listener()
             self.listen()
-            self.pub.publish(self.escape)
+            # self.pub.publish(self.escape)
+            self.server.send(self.escape).encode('utf-8')
             if time.time() - start > duration and count == 0:
                 exit_cond = True
                 count = 1
@@ -257,11 +255,12 @@ class pidcontroller:
                     self.escape = 1
             if exit_cond and self.oth == 1 and self.timer_start is None:
                 print(f"Drone{self.drone_num} escape is {self.escape}")
-                self.pub.publish(self.escape)
+                # self.pub.publish(self.escape)
+                self.server.send(self.escape).encode('utf-8')
                 self.timer_start = time.time()
             if (self.timer_start is not None) and (time.time() - self.timer_start > 1):
                 print("Deadlock broken!!")
                 self.timer_start = None 
                 break
             self.pos_change(targ_pos)
-            r.sleep()
+            # r.sleep()

@@ -2,12 +2,11 @@
 from controller import pidcontroller
 from threading import Thread
 from env import *
-import rospy
-
-rospy.init_node("swarm", anonymous=True)
 
 pluto1 = pidcontroller(
-    "/position_1",
+    server_port=5000,
+    client_port=6000,
+    pose_port=7000,
     kp=[3, 3, 2.7],
     kd=[3.75, 3.75, 2.15],    
     ki=[0.05, 0.05, 1.1],
@@ -18,7 +17,9 @@ pluto1 = pidcontroller(
 )
 
 pluto2 = pidcontroller(
-    "/position_2",
+    server_port=6000,
+    client_port=5000,
+    pose_port=7001,
     kp=[3.5, 3.5, 2.7],
     kd=[4.3, 4.3, 2.15],
     ki=[0.05, 0.05, 1.1],
