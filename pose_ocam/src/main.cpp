@@ -18,8 +18,8 @@ double MARKER_SIZE = 5.3;
 double DIST_CEILING = 233;
 const char *devPath = "/dev/video2";
 
-socket_communication::Client client1("127.0.0.1", 5002);
-socket_communication::Client client2("127.0.0.1", 5003);
+socket_communication::Client client1("127.0.0.1", 5000);
+socket_communication::Client client2("127.0.0.1", 6000);
 
 cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
@@ -113,20 +113,26 @@ std::vector<double> pose_estimate(cv::Mat &frame, cv::Mat &camMat, cv::Mat &dist
 void send_pose(std::vector<double> pose, int n)
 {
     std::string msg = "";
-    msg += std::to_string(pose[0]) + ",";
-    msg += std::to_string(pose[1]) + ",";
-    msg += std::to_string(pose[2]);
-    client1.Send(msg);
-    // printf("[pose1]: %s\n", msg.c_str());
+    if (n == 1 or n == 3)
+    {
+        msg = "";
+        msg += std::to_string(pose[0]) + ",";
+        msg += std::to_string(pose[1]) + ",";
+        msg += std::to_string(pose[2]);
+        client1.Send(msg);
+        if (VERBOSE)
+            printf("[pose1]: %s\n", msg.c_str());
+    }
 
-    if (n == 2)
+    if (n == 2 or n == 3)
     {
         msg = "";
         msg += std::to_string(pose[3]) + ",";
         msg += std::to_string(pose[4]) + ",";
         msg += std::to_string(pose[5]);
         client2.Send(msg);
-        // printf("[pose2]: %s\n", msg.c_str());
+        if (VERBOSE)
+            printf("[pose2]: %s\n", msg.c_str());
     }
 }
 
@@ -162,7 +168,7 @@ void *image_thread(void *args)
     {
         printf("Current Exposure: %d\n", exposure);
         printf("Current Gain: %d\n", gain);
-        exposure = 200, gain = 150;
+        exposure = 155, gain = 175;
         camera.set_control("Gain", gain);
         camera.set_control("Exposure (Absolute)", exposure);
         printf("New Exposure: %d\n", exposure);
@@ -212,23 +218,27 @@ void *image_thread(void *args)
         case '[':
             exposure = camera.get_control("Exposure (Absolute)");
             camera.set_control("Exposure (Absolute)", --exposure);
+            printf("New Exposure: %d\n", exposure);
             break;
         case ']':
             exposure = camera.get_control("Exposure (Absolute)");
             camera.set_control("Exposure (Absolute)", ++exposure);
+            printf("New Exposure: %d\n", exposure);
             break;
         case '-':
             exposure = camera.get_control("Gain");
             camera.set_control("Gain", --gain);
+            printf("New Gain: %d\n", gain);
             break;
         case '=':
             exposure = camera.get_control("Gain");
             camera.set_control("Gain", ++gain);
+            printf("New Gain: %d\n", gain);
             break;
         }
 
         usleep(1000);
-        timeCheck.toc_print();
+        // timeCheck.toc_print();
     }
     camera.stop();
     return NULL;
@@ -288,7 +298,6 @@ int main(int argc, char **argv)
             timeCheck.tic();
             initial_time = false;
         }
-        // printf("Inside process loop\n");
         pthread_mutex_lock(&mutex_img);
         {
             if (!ready_image) // if image not ready, retry
@@ -307,7 +316,7 @@ int main(int argc, char **argv)
         send_pose(poses, n); // forward pose
         usleep(1000);
 
-        timeCheck.toc_print();
+        // timeCheck.toc_print();
         initial_time = true;
         skipped = 0;
         skipped_time = 0;
