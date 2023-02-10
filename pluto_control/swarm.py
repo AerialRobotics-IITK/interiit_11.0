@@ -2,19 +2,24 @@
 from plutolib.controller import pidcontroller
 from threading import Thread
 from env import *
+import queue
+
+q1 = queue.Queue()
+q2 = queue.Queue()
+
 
 def run_drone1(point_list):
     pluto1 = pidcontroller(
-    server_port=5000,
-    client_port=6000,
-    pose_port=7000,
-    kp=[3, 3, 2.7],
-    kd=[3.75, 3.75, 2.15],    
-    ki=[0.05, 0.05, 1.1],
-    eqb_thrust=1550,
-    IP=drone1_ip,
-    PORT=PORT,
-    drone_num=1
+        pose_port=7000,
+        queue1=q1,
+        queue2=q2,
+        kp=[3, 3, 2.7],
+        kd=[3.75, 3.75, 2.15],
+        ki=[0.05, 0.05, 1.1],
+        eqb_thrust=1550,
+        IP=drone1_ip,
+        PORT=PORT,
+        drone_num=1,
     )
     pluto1.talker.disarm()
     pluto1.talker.arm()
@@ -31,16 +36,16 @@ def run_drone1(point_list):
 
 def run_drone2(point_list):
     pluto2 = pidcontroller(
-    server_port=6000,
-    client_port=5000,
-    pose_port=7001,
-    kp=[3.5, 3.5, 2.7],
-    kd=[4.3, 4.3, 2.15],
-    ki=[0.05, 0.05, 1.1],
-    eqb_thrust=1550,
-    IP=drone2_ip,
-    PORT=PORT,
-    drone_num=2
+        queue1=q2,
+        queue2=q1,
+        pose_port=7001,
+        kp=[3.5, 3.5, 2.7],
+        kd=[4.3, 4.3, 2.15],
+        ki=[0.05, 0.05, 1.1],
+        eqb_thrust=1550,
+        IP=drone2_ip,
+        PORT=PORT,
+        drone_num=2,
     )
     pluto2.talker.disarm()
     pluto2.talker.arm()

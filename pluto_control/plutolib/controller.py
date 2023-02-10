@@ -6,7 +6,6 @@ from plutolib.protocol import Protocol
 from env import *
 import os
 from CppPythonSocket.server import Server
-import socket
 from plutolib.utils import Filter
 
 HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
@@ -16,11 +15,10 @@ pi = 3.1415
 class pidcontroller:
     def __init__(
         self,
-        # pos_sub_topic,
-        server_port,
-        client_port,
         pose_port,
         IP,
+        queue1=None,
+        queue2=None,
         kp=[4, 4, 2.7],
         kd=[5, 5, 2.15],
         ki=[0.05, 0.05, 1.1],
@@ -28,6 +26,8 @@ class pidcontroller:
         PORT=23,
         drone_num=1
     ):
+        self.q1 = queue1
+        self.q2 = queue2
         self.temp = np.array([0,], dtype = np.int32)
         self.escape = 0
         self.oth = 0
@@ -57,27 +57,8 @@ class pidcontroller:
         self.verbose = False
 
         # server/client thing
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind((HOST, server_port))
         self.pose_server = Server("127.0.0.1", pose_port)
-        self.client = None
 
-        if(self.drone_num==1):
-            self.server.listen()
-            self.conn, self.addr = self.server.accept()
-            # sleep for 1 second to connect
-            time.sleep(1)
-            self.client = socket.socket().connect((HOST, client_port))
-            print(f"Connected to {self.addr}")
-
-        elif(self.drone_num==2):
-            time.sleep(1)
-            self.client = socket.socket().connect((HOST, client_port))
-            # sleep for 1 second to connect
-            self.server.listen()
-            self.conn, self.addr = self.server.accept()
-            print(f"Connected to {self.addr}")
-            
         os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
         self.LOGFILE = os.path.join(
             LOG_FOLDER_PATH, f"controller/d1_{int(time.time())}.log"
@@ -112,10 +93,10 @@ class pidcontroller:
         self.curr_pos[2] = self.z_filter.predict_kalman(self.curr_pos[2])
 
     def listen(self):
-        msg = self.conn.recv(1024).decode()
-        if not msg:
+        if self.q1.empty():
             return
-        self.oth = int(msg)
+        else:
+            self.curr_pos = self.q1.get()
 
     def clip(self, parameter, low, high):
 
@@ -245,7 +226,7 @@ class pidcontroller:
         while True:
             self.listener()
             self.listen()
-            self.conn.send(f"{self.escape}".encode())
+
             if time.time() - start > duration and count == 0:
                 exit_cond = True
                 count = 1
@@ -260,7 +241,8 @@ class pidcontroller:
                     self.escape = 1
             if exit_cond and self.oth == 1 and self.timer_start is None:
                 print(f"Drone{self.drone_num} escape is {self.escape}")
-                self.server.send(f"{self.escape}".encode())
+                # self.server.send(f"{self.escape}".encode())
+                self.q2.put_nowait(self.escape)
                 self.timer_start = time.time()
             if (self.timer_start is not None) and (time.time() - self.timer_start > 1):
                 print("Deadlock broken!!")
