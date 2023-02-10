@@ -10,7 +10,7 @@ def run_drone(point_list):
             "LOG_FOLDER_PATH": "../pluto_logs",
             "VERBOSE": True,
             "LOG_FOLDER": "controller",
-            "SERVER_PORT": 5000,
+            "SERVER_PORT": 7000,
         }
     )
     pluto.talker.disarm()

@@ -28,7 +28,6 @@ class pidcontroller:
     ):
         self.q1 = queue1
         self.q2 = queue2
-        self.temp = np.array([0,], dtype = np.int32)
         self.escape = 0
         self.oth = 0
         self.drone_num = drone_num
@@ -49,15 +48,13 @@ class pidcontroller:
         self.b3d = np.array([0.0, 0.0, 0.0])
         self.re3 = np.array([0.0, 0.0, 0.0])
         self.prev_pose = np.array([-1000,-1000,-1000])
-        # self.pose_sub_topic = pos_sub_topic
         self.timer_start = None
         self.x_filter = Filter(r=0.5)
         self.y_filter = Filter(r=0.5)
         self.z_filter = Filter(r=0.5)
-        self.verbose = False
 
         # server/client thing
-        self.pose_server = Server("127.0.0.1", pose_port)
+        self.pose_server = Server(HOST, pose_port)
 
         os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
         self.LOGFILE = os.path.join(
@@ -70,16 +67,9 @@ class pidcontroller:
             file=self.log_file,
         )
 
-    def callback(self, msg):
-
-        self.curr_pos[0] = msg.data[0]
-        self.curr_pos[1] = msg.data[1]
-        self.curr_pos[2] = msg.data[2]
-
     def listener(self):
         message = self.pose_server.receive()
         message = message.split(",")
-        print(message)
         message = np.array([np.float64(x) for x in message])
 
         if message[0] == -1000:
@@ -96,7 +86,7 @@ class pidcontroller:
         if self.q1.empty():
             return
         else:
-            self.curr_pos = self.q1.get()
+            self.oth = self.q1.get()
 
     def clip(self, parameter, low, high):
 
@@ -231,7 +221,7 @@ class pidcontroller:
                 exit_cond = True
                 count = 1
                 print(f"Drone{self.drone_num} Time Reached!!")
-            if (max([abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1]),])) < self.tol and (abs(targ_pos[2] - self.curr_pos[2]) < 25) and count == 0:
+            if (max(abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1])) < self.tol) and (abs(targ_pos[2] - self.curr_pos[2]) < 25) and count == 0:
                 exit_cond = True
                 count = 1
                 print(f"Drone{self.drone_num} Position Reached!!")
@@ -239,13 +229,12 @@ class pidcontroller:
                 count = 2
                 if self.escape == 0:
                     self.escape = 1
+                self.q2.put_nowait(self.escape)
             if exit_cond and self.oth == 1 and self.timer_start is None:
                 print(f"Drone{self.drone_num} escape is {self.escape}")
-                # self.server.send(f"{self.escape}".encode())
-                self.q2.put_nowait(self.escape)
                 self.timer_start = time.time()
             if (self.timer_start is not None) and (time.time() - self.timer_start > 1):
                 print("Deadlock broken!!")
-                self.timer_start = None 
+                self.timer_start = None
                 break
             self.pos_change(targ_pos)

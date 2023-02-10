@@ -150,7 +150,7 @@ void *image_thread(void *args)
 
     static tictoc timeCheck("image_thread");
 
-    camera.set_format(1280, 720, Withrobot::fourcc_to_pixformat('G', 'R', 'E', 'Y'), 1, 60);
+    camera.set_format(1280, 960, Withrobot::fourcc_to_pixformat('G', 'R', 'E', 'Y'), 1, 60);
 
     pthread_mutex_lock(&mutex_format);
     {
