@@ -19,7 +19,7 @@ double DIST_CEILING = 233;
 const char *devPath = "/dev/video2";
 
 socket_communication::Client client1("127.0.0.1", 7000);
-socket_communication::Client client2("127.0.0.1", 7001);
+socket_communication::Client client2("127.0.0.1", 8000);
 
 cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
@@ -86,7 +86,7 @@ std::vector<double> pose_estimate(cv::Mat &frame, cv::Mat &camMat, cv::Mat &dist
         int i = 0;
         for (auto &it : markerIds)
         {
-            if (it == 0) // ID for 1st drone is 0
+            if (it == 17) // ID for 1st drone is 0
             {
                 b[0] = tvec[i][0];
                 b[1] = tvec[i][1];
@@ -164,12 +164,13 @@ void *image_thread(void *args)
 
     int gain = camera.get_control("Gain");
     int exposure = camera.get_control("Exposure (Absolute)");
+    // int gain, exposure;
 
     if (VERBOSE)
     {
         printf("Current Exposure: %d\n", exposure);
         printf("Current Gain: %d\n", gain);
-        exposure = 220, gain = 180;
+        exposure = 100, gain = 83;
         camera.set_control("Gain", gain);
         camera.set_control("Exposure (Absolute)", exposure);
         printf("New Exposure: %d\n", exposure);

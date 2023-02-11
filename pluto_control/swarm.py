@@ -20,6 +20,7 @@ def run_drone1(point_list):
         IP=drone1_ip,
         PORT=PORT,
         drone_num=1,
+        LOG_FOLDER_PATH = LOG_FOLDER_PATH
     )
     pluto1.talker.disarm()
     pluto1.talker.arm()
@@ -38,7 +39,7 @@ def run_drone2(point_list):
     pluto2 = pidcontroller(
         queue1=q2,
         queue2=q1,
-        pose_port=7001,
+        pose_port=8000,
         kp=[3.5, 3.5, 2.7],
         kd=[4.3, 4.3, 2.15],
         ki=[0.05, 0.05, 1.1],
@@ -46,6 +47,7 @@ def run_drone2(point_list):
         IP=drone2_ip,
         PORT=PORT,
         drone_num=2,
+        LOG_FOLDER_PATH = LOG_FOLDER_PATH
     )
     pluto2.talker.disarm()
     pluto2.talker.arm()
@@ -62,19 +64,19 @@ def run_drone2(point_list):
 
 
 drone1_points = [
-    [-40, -50, 80],
-    [40, -50, 80],
-    [40, 30, 80],
-    [-40, 30, 80],
-    [-40, -50, 80],
+    [-40, -40, 80],
+    [40, -40, 80],
+    [40, 40, 80],
+    [-40, 40, 80],
+    [-40, -40, 80],
 ]
 drone2_points = [
-    [-40, 30, 80],
-    [-40, -50, 80],
-    [40, -50, 80],
-    [40, 30, 80],
-    [-40, 30, 80],
-    [-40, -50, 80],
+    [-40, 40, 80],
+    [-40, -40, 80],
+    [40, -40, 80],
+    [40, 40, 80],
+    [-40, 40, 80],
+    [-40, -40, 80],
 ]
 
 if __name__ == "__main__":

@@ -9,7 +9,6 @@ from CppPythonSocket.server import Server
 from plutolib.utils import Filter
 
 HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-LOG_FOLDER_PATH = "../../logs"
 pi = 3.1415
 
 class pidcontroller:
@@ -24,7 +23,8 @@ class pidcontroller:
         ki=[0.05, 0.05, 1.1],
         eqb_thrust=1550,
         PORT=23,
-        drone_num=1
+        LOG_FOLDER_PATH = "../../logs",
+        drone_num=1,
     ):
         self.q1 = queue1
         self.q2 = queue2
@@ -58,7 +58,7 @@ class pidcontroller:
 
         os.makedirs(os.path.join(LOG_FOLDER_PATH, "controller"), exist_ok=True)
         self.LOGFILE = os.path.join(
-            LOG_FOLDER_PATH, f"controller/d1_{int(time.time())}.log"
+            LOG_FOLDER_PATH, f"controller/d{self.drone_num}_{int(time.time())}.log"
         )
         self.log_file = open(self.LOGFILE, "w")
         self.start_time = time.time()

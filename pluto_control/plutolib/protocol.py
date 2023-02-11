@@ -50,7 +50,7 @@ class Protocol:
         self.CHECKSUM_BYTES = 1
 
         self.TAKEOFF_THRUST = 1650
-        self.LAND_THRUST = 1540
+        self.LAND_THRUST = 1555
         self.MAX_THRUST = 2100
         self.MIN_THRUST = 900
 

@@ -12,7 +12,7 @@ def TimestampMillisec64():
 
 
 if __name__ == "__main__":
-    server1 = Server("127.0.0.1", 5002)
+    server1 = Server("127.0.0.1", 7000)
     # Check that connection works
     fps_estimate = Filter(r=3)
 

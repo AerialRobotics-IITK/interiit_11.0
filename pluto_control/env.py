@@ -1,4 +1,4 @@
-LOG_FOLDER_PATH = "../../logs"
+LOG_FOLDER_PATH = "../pluto_logs"
 
 PORT = 23
 #IP for single drone
