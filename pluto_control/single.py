@@ -27,7 +27,7 @@ def run_drone(point_list):
     pluto.talker.actual_takeoff()
     i = 0
     while True:
-        pluto.autopilot(point_list[i], duration=8)
+        pluto.autopilot(point_list[i], duration=6)
         i = i + 1
         if i == len(point_list):
             break
@@ -37,11 +37,11 @@ def run_drone(point_list):
 
 drone_points = [
     [0, 0, 80],
-    [-40, -50, 80],
-    [40, -50, 80],
-    [40, 30, 80],
-    [-40, 30, 80],
-    [-40, -50, 80],
+    [-40, -40, 80],
+    [40, -40, 80],
+    [40, 40, 80],
+    [-40, 40, 80],
+    [-40, -40, 80],
 ]
 
 if __name__ == "__main__":

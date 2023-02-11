@@ -221,10 +221,10 @@ class pidcontroller:
                 exit_cond = True
                 count = 1
                 print(f"Drone{self.drone_num} Time Reached!!")
-            if (max(abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1])) < self.tol) and (abs(targ_pos[2] - self.curr_pos[2]) < 25) and count == 0:
-                exit_cond = True
-                count = 1
-                print(f"Drone{self.drone_num} Position Reached!!")
+            # if (max(abs(targ_pos[0] - self.curr_pos[0]),abs(targ_pos[1] - self.curr_pos[1])) < self.tol) and (abs(targ_pos[2] - self.curr_pos[2]) < 25) and count == 0:
+            #     exit_cond = True
+            #     count = 1
+            #     print(f"Drone{self.drone_num} Position Reached!!")
             if exit_cond and count==1:
                 count = 2
                 if self.escape == 0:
