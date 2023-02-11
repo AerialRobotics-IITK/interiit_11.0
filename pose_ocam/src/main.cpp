@@ -170,7 +170,7 @@ void *image_thread(void *args)
     {
         printf("Current Exposure: %d\n", exposure);
         printf("Current Gain: %d\n", gain);
-        exposure = 100, gain = 83;
+        exposure = 100, gain = 133;
         camera.set_control("Gain", gain);
         camera.set_control("Exposure (Absolute)", exposure);
         printf("New Exposure: %d\n", exposure);
