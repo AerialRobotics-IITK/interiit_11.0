@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-git clone -b main git@github.com:<removed>/interiit_11.0.git
+git clone -b main git@github.com:AerialRobotics-IITK/interiit_11.0.git
 cd interiit_11.0
 git submodule init
 git submodule update
